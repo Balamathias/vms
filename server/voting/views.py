@@ -50,7 +50,7 @@ from django.contrib.auth import get_user_model
 
 from django.utils.timezone import now
 
-from server.voting.serializers import TokenObtainPairSerializer
+from voting.serializers import TokenObtainPairSerializer
 from utils.constants import APP_NAME
 from utils.response import ResponseMixin
 from utils.pagination import StackPagination

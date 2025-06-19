@@ -7,13 +7,22 @@ from .models import Student, Election, Position, Candidate, Vote
 
 
 class TokenObtainPairSerializer(DefaultTokenObtainPairSerializer):
+    
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-
         token['matric_number'] = user.matric_number
-
+        token['full_name'] = user.full_name
         return token
+
+    def validate(self, attrs):        
+        matric_number = attrs.get('matric_number')
+        if matric_number:
+            attrs['matric_number'] = matric_number.upper()
+        
+        data = super().validate(attrs)
+        
+        return data
     
 
 class StudentSerializer(serializers.ModelSerializer):
