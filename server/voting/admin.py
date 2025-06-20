@@ -7,7 +7,7 @@ from .models import Student, Election, Position, Candidate, Vote
 
 @admin.register(Student)
 class StudentAdmin(UserAdmin):
-    list_display = ('matric_number', 'full_name', 'level', 'status', 'state_of_origin', 'email', 'is_active')
+    list_display = ('matric_number', 'full_name', 'level', 'status', 'state_of_origin', 'email', 'is_active', 'is_candidate_indicator', 'picture_preview')
     list_filter = ('level', 'status', 'state_of_origin', 'is_active', 'date_joined')
     search_fields = ('matric_number', 'full_name', 'email', 'phone_number')
     ordering = ('matric_number',)
@@ -15,7 +15,7 @@ class StudentAdmin(UserAdmin):
     
     fieldsets = (
         (None, {'fields': ('matric_number', 'password')}),
-        ('Personal info', {'fields': ('full_name', 'email', 'phone_number', 'picture')}),
+        ('Personal info', {'fields': ('full_name', 'email', 'phone_number', 'picture', 'picture_preview')}),
         ('Academic info', {'fields': ('level', 'state_of_origin', 'status')}),
         ('Permissions', {
             'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
@@ -26,11 +26,23 @@ class StudentAdmin(UserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('matric_number', 'full_name', 'level', 'password1', 'password2'),
+            'fields': ('matric_number', 'full_name', 'level', 'state_of_origin', 'password1', 'password2'),
         }),
     )
     
-    readonly_fields = ('date_joined', 'last_login', 'id')
+    readonly_fields = ('date_joined', 'last_login', 'id', 'picture_preview')
+    
+    def is_candidate_indicator(self, obj):
+        if obj.is_candidate:
+            return format_html('<span style="color: green;">✓ Eligible</span>')
+        return format_html('<span style="color: gray;">✗ Not Eligible</span>')
+    is_candidate_indicator.short_description = 'Candidate Status'
+    
+    def picture_preview(self, obj):
+        if obj.picture:
+            return format_html('<img src="{}" style="height: 50px; width: 50px; object-fit: cover; border-radius: 50%;" />', obj.picture.url)
+        return "No picture"
+    picture_preview.short_description = 'Picture Preview'
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related()
@@ -38,11 +50,17 @@ class StudentAdmin(UserAdmin):
 
 @admin.register(Election)
 class ElectionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'start_date', 'end_date', 'is_active', 'positions_count', 'votes_count')
+    list_display = ('name', 'start_date', 'end_date', 'is_active', 'is_ongoing_indicator', 'positions_count', 'votes_count')
     list_filter = ('is_active', 'start_date', 'end_date')
     search_fields = ('name',)
     ordering = ('-start_date',)
     readonly_fields = ('id',)
+    
+    def is_ongoing_indicator(self, obj):
+        if obj.is_ongoing:
+            return format_html('<span style="color: green;">🔴 Live</span>')
+        return format_html('<span style="color: gray;">⚫ Not Active</span>')
+    is_ongoing_indicator.short_description = 'Status'
     
     def positions_count(self, obj):
         return obj.positions.count()
@@ -58,22 +76,26 @@ class ElectionAdmin(admin.ModelAdmin):
 
 @admin.register(Position)
 class PositionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'election', 'candidates_count', 'votes_count')
+    list_display = ('name', 'election', 'enhancements_count', 'votes_count', 'eligible_candidates_count')
     list_filter = ('election', 'election__is_active')
     search_fields = ('name', 'election__name')
     ordering = ('election__start_date', 'name')
     readonly_fields = ('id',)
     
-    def candidates_count(self, obj):
-        return obj.candidates.count()
-    candidates_count.short_description = 'Candidates'
+    def enhancements_count(self, obj):
+        return obj.enhancements.count()
+    enhancements_count.short_description = 'Enhancements'
     
     def votes_count(self, obj):
-        return obj.vote_set.count()
+        return obj.votes.count()
     votes_count.short_description = 'Votes'
     
+    def eligible_candidates_count(self, obj):
+        return Student.objects.filter(level=500, status='active').count()
+    eligible_candidates_count.short_description = 'Eligible Students'
+    
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('election').prefetch_related('candidates')
+        return super().get_queryset(request).select_related('election').prefetch_related('enhancements')
 
 
 @admin.register(Candidate)
@@ -86,7 +108,7 @@ class CandidateAdmin(admin.ModelAdmin):
     
     fieldsets = (
         (None, {'fields': ('student', 'position')}),
-        ('Campaign Info', {'fields': ('bio', 'photo', 'photo_preview')}),
+        ('Enhancement Info', {'fields': ('bio', 'photo', 'photo_preview')}),
     )
     
     def student_name(self, obj):
@@ -105,7 +127,7 @@ class CandidateAdmin(admin.ModelAdmin):
     election.admin_order_field = 'position__election__name'
     
     def votes_received(self, obj):
-        return obj.vote_set.count()
+        return Vote.objects.filter(student_voted_for=obj.student, position=obj.position).count()
     votes_received.short_description = 'Votes'
     
     def photo_preview(self, obj):
@@ -117,14 +139,14 @@ class CandidateAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(
             'student', 'position', 'position__election'
-        ).prefetch_related('vote_set')
+        )
 
 
 @admin.register(Vote)
 class VoteAdmin(admin.ModelAdmin):
-    list_display = ('voter_matric', 'voter_name', 'candidate_name', 'position', 'election', 'voted_at')
+    list_display = ('voter_matric', 'voter_name', 'student_voted_for_name', 'student_voted_for_matric', 'position', 'election', 'voted_at')
     list_filter = ('position__election', 'position', 'voted_at', 'voter__level')
-    search_fields = ('voter__matric_number', 'voter__full_name', 'candidate__student__full_name')
+    search_fields = ('voter__matric_number', 'voter__full_name', 'student_voted_for__full_name', 'student_voted_for__matric_number')
     ordering = ('-voted_at',)
     readonly_fields = ('id', 'voted_at')
     date_hierarchy = 'voted_at'
@@ -139,10 +161,15 @@ class VoteAdmin(admin.ModelAdmin):
     voter_name.short_description = 'Voter Name'
     voter_name.admin_order_field = 'voter__full_name'
     
-    def candidate_name(self, obj):
-        return obj.candidate.student.full_name
-    candidate_name.short_description = 'Candidate'
-    candidate_name.admin_order_field = 'candidate__student__full_name'
+    def student_voted_for_name(self, obj):
+        return obj.student_voted_for.full_name
+    student_voted_for_name.short_description = 'Voted For'
+    student_voted_for_name.admin_order_field = 'student_voted_for__full_name'
+    
+    def student_voted_for_matric(self, obj):
+        return obj.student_voted_for.matric_number
+    student_voted_for_matric.short_description = 'Candidate Matric'
+    student_voted_for_matric.admin_order_field = 'student_voted_for__matric_number'
     
     def election(self, obj):
         return obj.position.election.name
@@ -151,17 +178,16 @@ class VoteAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(
-            'voter', 'candidate', 'candidate__student', 'position', 'position__election'
+            'voter', 'student_voted_for', 'position', 'position__election'
         )
     
     def has_add_permission(self, request):
-        return False  # Prevent manual vote creation
+        return False
     
     def has_change_permission(self, request, obj=None):
-        return False  # Prevent vote modification
+        return False
 
 
-# Custom admin site configuration
 admin.site.site_header = "Voting Management System"
 admin.site.site_title = "VMS Admin"
 admin.site.index_title = "Welcome to VMS Administration"
