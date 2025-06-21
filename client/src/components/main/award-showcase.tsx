@@ -79,7 +79,7 @@ const AwardsShowcase = () => {
       <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-teal-500/10 rounded-3xl blur-3xl -z-10" />
       
       <div className="text-center mb-10">
-        <h2 className="text-3xl font-bold text-white inline-block bg-gradient-to-r from-amber-200 to-yellow-400 bg-clip-text text-transparent">
+        <h2 className="text-3xl font-bold inline-block bg-gradient-to-r from-amber-200 to-yellow-400 bg-clip-text text-transparent">
           Award Winners Showcase
         </h2>
         <p className="text-white/70 mt-2">Celebrating excellence and achievements</p>

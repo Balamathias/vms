@@ -1,4 +1,6 @@
 "use client"
+
+
 import React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -15,6 +17,8 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { useLogin } from '@/services/client/auth'
+import { useRouter } from 'next/navigation'
 
 const loginSchema = z.object({
     matricNumber: z
@@ -30,6 +34,9 @@ type LoginFormData = z.infer<typeof loginSchema>
 
 const LoginPage = () => {
     const [showPassword, setShowPassword] = React.useState(false)
+    const { mutate: login, isPending } = useLogin()
+
+    const router = useRouter()
 
     const form = useForm<LoginFormData>({
         resolver: zodResolver(loginSchema),
@@ -40,9 +47,18 @@ const LoginPage = () => {
     })
 
     const onSubmit = (data: LoginFormData) => {
-        // Prepare data for backend submission
-        console.log('Login data:', data)
-        // TODO: Send to backend
+        login({ matric_number: data.matricNumber, password: data.password }, {
+            onSuccess: (data) => {
+                if (data.error) {
+                    form.setError('root', { message: data.message })
+                    return
+                }
+                router.replace('/')
+            },
+            onError: (error) => {
+                form.setError('root', { message: error.message })
+            },
+        })
     }
 
     return (
@@ -143,9 +159,9 @@ const LoginPage = () => {
                                         "backdrop-blur-sm shadow-lg hover:shadow-xl",
                                         "active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                                     )}
-                                    disabled={form.formState.isSubmitting}
+                                    disabled={(form.formState.isSubmitting || isPending)}
                                 >
-                                    {form.formState.isSubmitting ? (
+                                    {(form.formState.isSubmitting || isPending) ? (
                                         <div className="flex items-center justify-center gap-2">
                                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                                             Signing in...

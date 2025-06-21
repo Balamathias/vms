@@ -1,4 +1,3 @@
-from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer as DefaultTokenObtainPairSerializer
@@ -31,10 +30,9 @@ class StudentSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        if instance.picture:
+        if instance.picture and self.context.get('request'):
             data['picture'] = self.context['request'].build_absolute_uri(instance.picture.url)
         return data
-
 
 class DynamicCandidateSerializer(serializers.ModelSerializer):
     bio = serializers.SerializerMethodField()
@@ -50,12 +48,14 @@ class DynamicCandidateSerializer(serializers.ModelSerializer):
 
     def get_photo(self, obj):
         enhancement = self._get_enhancement(obj)
+        request = self.context.get('request')
+        if not request:
+            return None
         if enhancement and enhancement.photo:
-            return self.context['request'].build_absolute_uri(enhancement.photo.url)
+            return request.build_absolute_uri(enhancement.photo.url)
         elif obj.picture:
-            return self.context['request'].build_absolute_uri(obj.picture.url)
+            return request.build_absolute_uri(obj.picture.url)
         return None
-
     def _get_enhancement(self, student):
         position = self.context.get('position')
         if not position:
@@ -64,17 +64,36 @@ class DynamicCandidateSerializer(serializers.ModelSerializer):
 
 
 class PositionSerializer(serializers.ModelSerializer):
-    # candidates = serializers.SerializerMethodField()
+    candidates = serializers.SerializerMethodField()
+    candidate_count = serializers.SerializerMethodField()
+    election_name = serializers.CharField(source='election.name', read_only=True)
+    has_voted = serializers.SerializerMethodField()
 
     class Meta:
         model = Position
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'candidate_count', 'election_name', 'candidates', 'has_voted']
 
-    # def get_candidates(self, position):
-    #     students = Student.objects.filter(level=500, status='active')
-    #     context = self.context.copy()
-    #     context['position'] = position
-    #     return DynamicCandidateSerializer(students, many=True, context=context).data
+    def get_candidate_count(self, position):
+        return Student.objects.filter(
+            level=500, 
+            status='active', 
+        ).count()
+
+    def get_candidates(self, position):
+        # Only return candidates when fetching position detail (single instance)
+        if self.context.get('view') and hasattr(self.context['view'], 'action'):
+            if self.context['view'].action == 'retrieve':
+                students = Student.objects.filter(level=500, status='active')
+                context = self.context.copy()
+                context['position'] = position
+                return DynamicCandidateSerializer(students, many=True, context=context).data
+        return None
+
+    def get_has_voted(self, position):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return Vote.objects.filter(voter=request.user, position=position).exists()
+        return False
 
 
 class ActiveElectionSerializer(serializers.ModelSerializer):
@@ -101,11 +120,9 @@ class CandidateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Candidate
-        fields = ['id', 'student', 'bio', 'photo']
-
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        if instance.photo:
+        if instance.photo and self.context.get('request'):
             data['photo'] = self.context['request'].build_absolute_uri(instance.photo.url)
         return data
 

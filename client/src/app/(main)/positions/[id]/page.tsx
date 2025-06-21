@@ -3,80 +3,78 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Award, Check, Users } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
+import { usePosition, useVoteCandidate } from '@/services/client/api'
+import { toast } from 'sonner'
 
-type Candidate = {
-  id: string
-  name: string
-  picture: string
-  bio: string
-}
-
-// Mock data for now
-const mockPosition = {
-  id: '1',
-  name: 'Most Likely to Succeed',
-  election: 'Graduating Class Awards 2024',
-  candidates: [
-    {
-      id: '1',
-      name: 'Aisha Mohammed',
-      picture: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&h=200&fit=crop',
-      bio: 'Class president for 3 years with exceptional leadership skills and academic achievements.'
-    },
-    {
-      id: '2',
-      name: 'Emmanuel Adebayo',
-      picture: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&h=200&fit=crop',
-      bio: 'Started a successful tech startup in his sophomore year. Dean\'s list every semester.'
-    },
-    {
-      id: '3',
-      name: 'Chukwudi Okonkwo',
-      picture: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200&h=200&fit=crop',
-      bio: 'Research assistant with published papers in international journals. Scholarship recipient.'
-    },
-    {
-      id: '4',
-      name: 'Fatima Ibrahim',
-      picture: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=200&h=200&fit=crop',
-      bio: 'Valedictorian candidate with multiple job offers from top companies before graduation.'
-    }
-  ]
-}
-
-const PositionDetailPage = ({ params }: { params: { id: string } }) => {
+const PositionDetailPage = () => {
   const router = useRouter()
+
+  const params = useParams()
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [isVoteSuccess, setIsVoteSuccess] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  
+
+  const { data: positionData, isPending } = usePosition(params?.id as any)
+  const { mutate: vote, isPending: voting } = useVoteCandidate()
+
+  const position = positionData?.data
+  const candidates = position?.candidates || []
   // Filter candidates based on search term
-  const filteredCandidates = mockPosition.candidates.filter(candidate => 
-    candidate.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    candidate.bio.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredCandidates = candidates?.filter(candidate => 
+    candidate?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    candidate?.bio?.toLowerCase().includes(searchTerm.toLowerCase())
   )
   
-  const handleVote = () => {
+  const handleCandidateSelect = (candidateId: string) => {
+    setSelectedCandidate(candidateId)
+    setShowConfirmModal(true)
+  }
+  
+  const handleConfirmVote = () => {
     if (!selectedCandidate) return
     
-    setIsSubmitting(true)
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false)
-      setIsVoteSuccess(true)
-      
-      // Reset after showing success message
-      setTimeout(() => {
-        router.push('/positions')
-      }, 2000)
-    }, 1500)
+    vote({position: params?.id as any, student_voted_for: selectedCandidate}, {
+      onSuccess: (data) => {
+        console.log(data)
+        if (data?.error) {
+          console.error("Vote submission failed:", data.error.detail)
+          toast.error(data?.error?.detail)
+          return
+        }
+        setIsVoteSuccess(true)
+        setTimeout(() => {
+          setIsVoteSuccess(false)
+          router.replace('/positions')
+        }, 2000)
+      },
+      onError: (error) => {
+        console.error("Vote submission error:", error)
+        toast.error(error?.message)
+      },
+    })
+  }
+  
+  const handleCancelVote = () => {
+    setShowConfirmModal(false)
+    setSelectedCandidate(null)
+  }
+  
+  const getSelectedCandidateInfo = () => {
+    return candidates?.find(candidate => candidate.id === selectedCandidate)
   }
   
   const goBack = () => {
     router.back()
+  }
+
+  if (isPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="h-12 w-12 rounded-full border-4 border-white/10 border-t-white/80 animate-spin" />
+      </div>
+    )
   }
   
   return (
@@ -100,25 +98,50 @@ const PositionDetailPage = ({ params }: { params: { id: string } }) => {
             
             <h1 className="text-3xl font-bold text-white flex items-center gap-3">
               <Award className="h-6 w-6 text-amber-300" />
-              {mockPosition.name}
+              {position?.name}
             </h1>
-            <p className="text-white/70 mt-1">{mockPosition.election}</p>
+            <p className="text-white/70 mt-1">{position?.election_name}</p>
           </div>
-          
-          <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/20 rounded-xl text-white/80">
-            <Users className="h-4 w-4" />
-            <span>{mockPosition.candidates.length} Candidates</span>
+            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/20 rounded-xl text-white/80">
+              <Users className="h-4 w-4" />
+              <span>{position?.candidates.length} Candidates</span>
+            </div>
+            
+            {/* Vote Status Indicator */}
+            {position?.has_voted && (
+              <motion.div 
+                className="flex items-center gap-2 px-4 py-2 bg-green-500/10 border border-green-500/30 rounded-xl text-green-300"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+              >
+                <Check className="h-4 w-4" />
+                <span className="text-sm font-medium">Vote Cast</span>
+              </motion.div>
+            )}
           </div>
         </motion.div>
-        
-        {/* Voting Instructions */}
+          {/* Voting Instructions */}
         <motion.div 
           className="mb-10 p-4 rounded-xl border border-white/20 bg-white/5 backdrop-blur-sm text-white/80"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
         >
-          <p>Select one candidate below and click "Submit Vote" to cast your vote for this position.</p>
+          {position?.has_voted ? (
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                <Check className="h-4 w-4 text-green-300" />
+              </div>
+              <div>
+                <p className="text-green-300 font-medium">You have already voted for this position</p>
+                <p className="text-white/60 text-sm">Thank you for participating in the election!</p>
+              </div>
+            </div>
+          ) : (
+            <p>Select one candidate below to cast your vote for this position.</p>
+          )}
         </motion.div>
         
         {/* Search bar */}
@@ -175,26 +198,29 @@ const PositionDetailPage = ({ params }: { params: { id: string } }) => {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10" />
                   <img 
                     src={candidate.picture} 
-                    alt={candidate.name}
-                    className="w-full h-full object-cover"
+                    alt={candidate?.full_name}
+                    className="w-full h-full object-cover object-center"
                   />
                   <div className="absolute bottom-4 left-4 right-4 z-20">
-                    <h3 className="text-xl font-bold text-white">{candidate.name}</h3>
+                    <h3 className="text-xl font-bold text-white">{candidate?.full_name}</h3>
                   </div>
                 </div>
                 
                 {/* Candidate Bio */}
                 <div className="p-4">
-                  <p className="text-white/80 text-sm mb-4 line-clamp-3">{candidate.bio}</p>
-                  
-                  <button
-                    onClick={() => setSelectedCandidate(candidate.id)}
+                  <p className="text-white/80 text-sm mb-4 line-clamp-3">{candidate?.bio}</p>                    <button
+                    onClick={() => handleCandidateSelect(candidate.id)}
                     className={`w-full p-3 rounded-xl flex items-center justify-center gap-2 transition-colors
-                               ${selectedCandidate === candidate.id
+                               ${position?.has_voted 
+                                 ? 'bg-white/5 border border-white/10 text-white/40 cursor-not-allowed'
+                                 : selectedCandidate === candidate.id
                                  ? 'bg-amber-500/20 border border-amber-500/30 text-white'
                                  : 'bg-white/5 border border-white/20 text-white/80 hover:bg-white/10'}`}
+                    disabled={position?.has_voted}
                   >
-                    {selectedCandidate === candidate.id ? (
+                    {position?.has_voted ? (
+                      <span>Voting Closed</span>
+                    ) : selectedCandidate === candidate.id ? (
                       <>
                         <Check className="h-4 w-4" />
                         <span>Selected</span>
@@ -221,41 +247,134 @@ const PositionDetailPage = ({ params }: { params: { id: string } }) => {
               <h3 className="text-xl font-semibold text-white mb-2">No candidates found</h3>
               <p className="text-white/70">Try adjusting your search terms</p>
             </motion.div>
-          )}
-        </div>
+          )}        </div>
         
-        {/* Submit Button */}
-        <motion.div 
-          className="sticky bottom-4 max-w-6xl mx-auto"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-        >
-          <div className="backdrop-blur-xl bg-white/10 border border-white/20 p-4 rounded-xl shadow-lg">
-            <button
-              onClick={handleVote}
-              disabled={!selectedCandidate || isSubmitting || isVoteSuccess}
-              className={`w-full py-3 rounded-lg font-semibold text-white transition-all duration-200
-                         ${selectedCandidate && !isVoteSuccess
-                            ? 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 shadow-lg'
-                            : 'bg-white/10 text-white/50 cursor-not-allowed'}`}
+        {/* Confirmation Modal */}
+        <AnimatePresence>
+          {showConfirmModal && (
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleCancelVote}
             >
-              {isSubmitting ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white/90 animate-spin" />
-                  <span>Submitting Vote...</span>
+              <motion.div
+                className="relative bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl"
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Animated gradient background */}
+                <div className="absolute inset-0 rounded-2xl overflow-hidden">
+                  <motion.div 
+                    className="absolute inset-0 opacity-30"
+                    animate={{ 
+                      background: [
+                        'linear-gradient(135deg, rgba(156, 39, 176, 0.1) 0%, rgba(33, 150, 243, 0.1) 100%)',
+                        'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(76, 175, 80, 0.1) 100%)',
+                        'linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(255, 193, 7, 0.1) 100%)',
+                      ]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                  />
                 </div>
-              ) : isVoteSuccess ? (
-                <div className="flex items-center justify-center gap-2 text-green-300">
-                  <Check className="h-5 w-5" />
-                  <span>Vote Submitted Successfully!</span>
+                
+                <div className="relative z-10">
+                  {/* Header */}
+                  <div className="text-center mb-6">
+                    <div className="mx-auto w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mb-4">
+                      <Award className="h-8 w-8 text-amber-300" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-white mb-2">Confirm Your Vote</h2>
+                    <p className="text-white/70">Are you sure you want to vote for this candidate?</p>
+                  </div>
+                  
+                  {/* Selected Candidate Info */}
+                  {getSelectedCandidateInfo() && (
+                    <motion.div 
+                      className="mb-6 p-4 rounded-xl bg-white/5 border border-white/10"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                    >
+                      <div className="flex items-center gap-4">
+                        <img 
+                          src={getSelectedCandidateInfo()?.picture} 
+                          alt={getSelectedCandidateInfo()?.full_name}
+                          className="w-12 h-12 rounded-lg object-cover"
+                        />
+                        <div>
+                          <h3 className="text-white font-semibold">{getSelectedCandidateInfo()?.full_name}</h3>
+                          <p className="text-white/60 text-sm">For {position?.name}</p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                  
+                  {/* Action Buttons */}
+                  <div className="flex gap-3">
+                    <motion.button
+                      onClick={handleCancelVote}
+                      className="flex-1 py-3 px-4 rounded-xl bg-white/5 border border-white/20 text-white/80 hover:bg-white/10 transition-colors"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      Cancel
+                    </motion.button>
+                    <motion.button
+                      onClick={handleConfirmVote}
+                      disabled={voting}
+                      className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500/80 to-yellow-500/80 hover:from-amber-500 hover:to-yellow-500 text-white font-semibold transition-all shadow-lg disabled:opacity-50"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      {voting ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white/90 animate-spin" />
+                          <span>Voting...</span>
+                        </div>
+                      ) : (
+                        'Confirm Vote'
+                      )}
+                    </motion.button>
+                  </div>
+                  
+                  {/* Fine print */}
+                  <p className="text-white/50 text-xs text-center mt-4">
+                    This action cannot be undone. Your vote will be recorded permanently.
+                  </p>
                 </div>
-              ) : (
-                'Submit Vote'
-              )}
-            </button>
-          </div>
-        </motion.div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        {/* Loading Overlay */}
+        <AnimatePresence>
+          {voting && (
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 max-w-sm w-full text-center"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+              >
+                <div className="mx-auto w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mb-4">
+                  <div className="h-8 w-8 rounded-full border-4 border-white/30 border-t-white/90 animate-spin" />
+                </div>
+                <h2 className="text-xl font-bold text-white mb-2">Submitting Your Vote</h2>
+                <p className="text-white/70">Please wait while we process your vote...</p>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         {/* Success Overlay */}
         <AnimatePresence>

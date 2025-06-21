@@ -20,6 +20,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.views import APIView
 
 from .models import Election, Vote, Candidate, Student, Position
 from .serializers import (
@@ -59,6 +61,31 @@ class RefreshTokenView(TokenRefreshView, ResponseMixin):
         return self.response(data=response.data, message="Token refresh failed.", status_code=response.status_code)
     
 
+class LogoutView(APIView, ResponseMixin):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, *args, **kwargs):
+        try:
+            refresh_token = request.data.get("refresh")
+
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            logger.info(f"User {request.user.matric_number} logged out successfully.")
+            return self.response(data={}, message="Logout successful.", status_code=status.HTTP_205_RESET_CONTENT)
+        except Exception as e:
+            logger.error(f"Logout failed for user {request.user.matric_number}: {str(e)}")
+            return self.response(error={"detail": "Logout failed."}, status_code=status.HTTP_400_BAD_REQUEST)
+        
+
+class CurrentUserView(APIView, ResponseMixin):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        serializer = StudentSerializer(user)
+        return self.response(data=serializer.data, message="Current user retrieved successfully.")
+    
+
 class StudentViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
@@ -90,7 +117,7 @@ class ElectionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
             return self.response(error={"detail": "Multiple active elections found."}, status_code=500)
         return self.response(data=self.get_serializer(active).data)
 
-    @action(detail=True, methods=['get'], url_path='results')
+    @action(detail=True, methods=['get'], url_path='results', permission_classes=[IsAuthenticated])
     def results(self, request, pk=None):
         election = self.get_object()
         if election.end_date > timezone.now() and not request.user.is_staff:
@@ -123,12 +150,15 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
         try:
+            serializer.is_valid(raise_exception=True)
             self.perform_create(serializer)
             return self.response(data=serializer.data, message="Vote cast successfully.", status_code=201)
         except ValidationError as e:
             return self.response(error={"detail": str(e)}, status_code=400)
+        except Exception as e:
+            logger.error(f"Error casting vote: {str(e)}")
+            return self.response(error={"detail": "An error occurred while casting your vote."}, status_code=500)
 
     def perform_create(self, serializer):
         voter = self.request.user
@@ -151,6 +181,13 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
         context['position'] = position
         serializer = DynamicCandidateSerializer(students, many=True, context=context)
         return self.response(data=serializer.data, message="Candidates for position retrieved successfully.")
+    
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+        data['candidate_count'] = Student.objects.filter(level=500, status='active').count()
+        return self.response(data=data, message="Position details retrieved successfully.")
 
 
 class CandidateViewSet(viewsets.ModelViewSet, ResponseMixin):

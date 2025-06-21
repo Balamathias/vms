@@ -1,6 +1,9 @@
+import Navbar from '@/components/main/navbar'
+import { getUser } from '@/services/server/auth'
 import React, { PropsWithChildren } from 'react'
 
-const Layout = ({ children }: PropsWithChildren) => {
+const Layout = async ({ children }: PropsWithChildren) => {
+  const { data: user } = await getUser()
   return (
     <div className="min-h-screen relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-gray-950 via-black to-indigo-950 z-0"></div>
@@ -9,7 +12,12 @@ const Layout = ({ children }: PropsWithChildren) => {
       <div className="absolute bottom-0 right-1/4 w-96 h-96 rounded-full bg-purple-500/20 blur-[120px] z-0"></div>
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-cyan-500/20 blur-[120px] z-0"></div>
       
-      <main className="relative z-10">{children}</main>
+      <main className="relative z-10">
+        <Navbar user={user} />
+        <div className='mt-24'>
+          {children}
+        </div>
+      </main>
     </div>
   )
 }

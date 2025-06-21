@@ -1,7 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
-from django.db.models import Count
 from .models import Student, Election, Position, Candidate, Vote
 
 
@@ -83,9 +82,8 @@ class PositionAdmin(admin.ModelAdmin):
     readonly_fields = ('id',)
     
     def enhancements_count(self, obj):
-        return obj.enhancements.count()
-    enhancements_count.short_description = 'Enhancements'
-    
+        return obj.candidates.count()
+    enhancements_count.short_description = 'Candidates'
     def votes_count(self, obj):
         return obj.votes.count()
     votes_count.short_description = 'Votes'
@@ -95,8 +93,7 @@ class PositionAdmin(admin.ModelAdmin):
     eligible_candidates_count.short_description = 'Eligible Students'
     
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('election').prefetch_related('enhancements')
-
+        return super().get_queryset(request).select_related('election').prefetch_related('candidates')
 
 @admin.register(Candidate)
 class CandidateAdmin(admin.ModelAdmin):

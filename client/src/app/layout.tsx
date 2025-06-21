@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Lexend } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { TanstackQueryProvider } from "@/components/tanstack.query";
 
 const lexend = Lexend({
   variable: "--font-lexend",
@@ -31,7 +32,9 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            {children}
+            <TanstackQueryProvider>
+              {children}
+            </TanstackQueryProvider>
         </ThemeProvider>
       </body>
     </html>

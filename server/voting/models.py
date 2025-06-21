@@ -1,4 +1,5 @@
 import uuid
+from venv import create
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils import timezone
@@ -100,6 +101,9 @@ class Position(models.Model):
     name = models.CharField(max_length=255, help_text="e.g., 'Best Dressed', 'Most Innovative'")
     election = models.ForeignKey(Election, related_name='positions', on_delete=models.CASCADE)
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     def __str__(self):
         return f"{self.name} ({self.election.name})"
 
@@ -113,6 +117,9 @@ class Candidate(models.Model):
     position = models.ForeignKey(Position, related_name='candidates', on_delete=models.CASCADE)
     bio = models.TextField(blank=True, null=True)
     photo = models.ImageField(upload_to='candidates/', blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ('student', 'position')
@@ -129,6 +136,9 @@ class Vote(models.Model):
     student_voted_for = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='votes_received')
 
     voted_at = models.DateTimeField(auto_now_add=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ('voter', 'position')

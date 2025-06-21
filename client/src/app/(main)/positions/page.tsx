@@ -3,42 +3,26 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Clock, BarChart } from 'lucide-react'
-import PositionList from '@/components/positions/PositionList'
+import PositionList from '@/components/positions/position-list'
+import { useActiveElection } from '@/services/client/api'
 
-// Temporary mock data until API integration
-const mockElection = {
-  id: '1',
-  name: 'Graduating Class Awards 2024',
-  startDate: new Date('2024-06-01T00:00:00Z'),
-  endDate: new Date('2024-06-15T23:59:59Z'),
-  positions: [
-    { id: '1', name: 'Most Likely to Succeed', candidateCount: 5 },
-    { id: '2', name: 'Best Dressed', candidateCount: 7 },
-    { id: '3', name: 'Most Innovative', candidateCount: 4 },
-    { id: '4', name: 'Best Smile', candidateCount: 6 },
-    { id: '5', name: 'Most Athletic', candidateCount: 3 },
-    { id: '6', name: 'Most Likely to Change the World', candidateCount: 5 },
-  ]
-}
 
 const PositionsPage = () => {
   const [timeLeft, setTimeLeft] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
-  
-  useEffect(() => {
-    // Simulate API loading
-    const timer = setTimeout(() => {
-      setIsLoading(false)
-    }, 1000)
-    
-    return () => clearTimeout(timer)
-  }, [])
-  
+
+  const { data: activeElection, isPending } = useActiveElection()
+  const election = activeElection?.data
+
   useEffect(() => {
     const calculateTimeLeft = () => {
       const now = new Date()
-      const difference = mockElection.endDate.getTime() - now.getTime()
+      const endDate = election?.end_date ? new Date(election.end_date) : null
+      if (!endDate) {
+        setTimeLeft('')
+        return
+      }
       
+      const difference = endDate.getTime() - now.getTime()
       if (difference <= 0) {
         setTimeLeft('Voting closed')
         return
@@ -55,9 +39,9 @@ const PositionsPage = () => {
     const interval = setInterval(calculateTimeLeft, 60000) // Update every minute
     
     return () => clearInterval(interval)
-  }, [])
+  }, [election])
   
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="h-12 w-12 rounded-full border-4 border-white/10 border-t-white/80 animate-spin" />
@@ -98,7 +82,7 @@ const PositionsPage = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
         >
-          Select a position below to vote for your favorite candidates in the {mockElection.name}
+          Select a position below to vote for your favorite candidates in the {election?.name}
         </motion.p>
       </div>
       
@@ -118,7 +102,7 @@ const PositionsPage = () => {
         
         <div className="flex items-center gap-2 text-white/90">
           <BarChart className="h-5 w-5 text-blue-300" />
-          <span>{mockElection.positions.length} Positions Available</span>
+          <span>{election?.positions.length} Positions Available</span>
         </div>
         
         <div className="h-10 w-px bg-white/10 hidden md:block" />
@@ -130,8 +114,8 @@ const PositionsPage = () => {
       
       {/* Positions List */}
       <PositionList 
-        positions={mockElection.positions} 
-        electionName={mockElection.name}
+        positions={election?.positions || []}
+        electionName={election?.name!}
       />
     </div>
   )

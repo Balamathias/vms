@@ -3,13 +3,8 @@
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Search, X } from 'lucide-react'
-import PositionCard from './PositionCard'
-
-type Position = {
-  id: string
-  name: string
-  candidateCount?: number
-}
+import PositionCard from './position-card'
+import { Position } from '@/@types/db'
 
 type PositionListProps = {
   positions: Position[]
@@ -62,9 +57,10 @@ const PositionList = ({ positions, electionName }: PositionListProps) => {
               key={position.id}
               id={position.id}
               name={position.name}
-              candidateCount={position.candidateCount}
+              candidateCount={position.candidate_count || 0}
               electionName={electionName}
               index={index}
+              hasVoted={position?.has_voted}
             />
           ))
         ) : (
