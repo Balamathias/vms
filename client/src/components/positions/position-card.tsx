@@ -12,10 +12,11 @@ type PositionCardProps = {
   candidateCount?: number
   electionName?: string
   index: number,
-  hasVoted?: boolean
+  hasVoted?: boolean,
+  genderRestriction?: string
 }
 
-const PositionCard = ({ id, name, candidateCount = 0, electionName, index, hasVoted }: PositionCardProps) => {
+const PositionCard = ({ id, name, candidateCount = 0, electionName, index, hasVoted, genderRestriction }: PositionCardProps) => {
   const router = useRouter()
   
   const handleViewPosition = () => {
@@ -75,7 +76,7 @@ const PositionCard = ({ id, name, candidateCount = 0, electionName, index, hasVo
       </div>
       
       <h3 className={cn("text-xl font-bold mb-2", hasVoted ? "text-green-100" : "text-white")}>
-        {name}
+        {name}{genderRestriction === 'any' ? '' : (' | ' + genderRestriction?.charAt(0).toUpperCase() + genderRestriction?.slice(1))}
       </h3>
       
       <div className={cn(

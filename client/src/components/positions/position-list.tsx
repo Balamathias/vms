@@ -61,6 +61,7 @@ const PositionList = ({ positions, electionName }: PositionListProps) => {
               electionName={electionName}
               index={index}
               hasVoted={position?.has_voted}
+              genderRestriction={position.gender_restriction}
             />
           ))
         ) : (
