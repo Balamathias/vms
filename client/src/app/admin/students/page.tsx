@@ -6,6 +6,8 @@ import { Search, Filter, Download, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import StudentRow from './components/StudentRow';
 import ImportStudentsModal from './components/ImportStudentsModal';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from '@/components/ui/table';
 
 export default function StudentsPage() {
     const [search, setSearch] = useState('');
@@ -50,23 +52,23 @@ export default function StudentsPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-white">Students Management</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white">Students Management</h1>
                     <p className="text-white/60 mt-1">Manage student accounts and data</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                     <button
                         onClick={handleExport}
                         disabled={isExporting}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500/20 border border-green-400/30 text-green-400 hover:bg-green-500/30 transition-all"
+                        className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-green-500/20 border border-green-400/30 text-green-400 hover:bg-green-500/30 transition-all"
                     >
                         <Download className="h-4 w-4" />
                         {isExporting ? 'Exporting...' : 'Export CSV'}
                     </button>
                     <button
                         onClick={() => setShowImportModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/20 border border-blue-400/30 text-blue-400 hover:bg-blue-500/30 transition-all"
+                        className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-500/20 border border-blue-400/30 text-blue-400 hover:bg-blue-500/30 transition-all"
                     >
                         <Upload className="h-4 w-4" />
                         Import CSV
@@ -87,28 +89,36 @@ export default function StudentsPage() {
                             className="w-full pl-10 pr-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:ring-2 focus:ring-white/20 focus:outline-none"
                         />
                     </div>
-                    <select
+                    <Select
                         value={filters.level}
-                        onChange={(e) => setFilters(prev => ({ ...prev, level: e.target.value, page: 1 }))}
-                        className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:border-white/40 focus:ring-2 focus:ring-white/20 focus:outline-none appearance-none cursor-pointer"
+                        onValueChange={(value) => setFilters(prev => ({ ...prev, level: value, page: 1 }))}
                     >
-                        <option value="" className="bg-gray-800 text-white">All Levels</option>
-                        <option value="100" className="bg-gray-800 text-white">100 Level</option>
-                        <option value="200" className="bg-gray-800 text-white">200 Level</option>
-                        <option value="300" className="bg-gray-800 text-white">300 Level</option>
-                        <option value="400" className="bg-gray-800 text-white">400 Level</option>
-                        <option value="500" className="bg-gray-800 text-white">500 Level</option>
-                    </select>
-                    <select
+                        <SelectTrigger className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:border-white/40 focus:ring-2 focus:ring-white/20 focus:outline-none">
+                            <SelectValue placeholder="All Levels" />
+                        </SelectTrigger>
+                        <SelectContent className='bg-white/10 backdrop-blur-md border border-white/25 shadow-xl'>
+                            <SelectItem value="all">All Levels</SelectItem>
+                            <SelectItem value="100">100 Level</SelectItem>
+                            <SelectItem value="200">200 Level</SelectItem>
+                            <SelectItem value="300">300 Level</SelectItem>
+                            <SelectItem value="400">400 Level</SelectItem>
+                            <SelectItem value="500">500 Level</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Select
                         value={filters.status}
-                        onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value, page: 1 }))}
-                        className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:border-white/40 focus:ring-2 focus:ring-white/20 focus:outline-none appearance-none cursor-pointer"
+                        onValueChange={(value) => setFilters(prev => ({ ...prev, status: value, page: 1 }))}
                     >
-                        <option value="" className="bg-gray-800 text-white">All Status</option>
-                        <option value="active" className="bg-gray-800 text-white">Active</option>
-                        <option value="inactive" className="bg-gray-800 text-white">Inactive</option>
-                        <option value="graduated" className="bg-gray-800 text-white">Graduated</option>
-                    </select>
+                        <SelectTrigger className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:border-white/40 focus:ring-2 focus:ring-white/20 focus:outline-none">
+                            <SelectValue placeholder="All Status" />
+                        </SelectTrigger>
+                        <SelectContent className='bg-white/10 backdrop-blur-md border border-white/25 shadow-xl'>
+                            <SelectItem value="all">All Status</SelectItem>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                            <SelectItem value="graduated">Graduated</SelectItem>
+                        </SelectContent>
+                    </Select>
                     <div className="flex items-center gap-2 text-white/70">
                         <Filter className="h-4 w-4" />
                         <span className="text-sm">
@@ -120,37 +130,48 @@ export default function StudentsPage() {
 
             {/* Students Table */}
             <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/20 overflow-hidden">
-                <div className="p-4">
-                    <div className="grid grid-cols-8 gap-4 text-white/70 font-medium mb-4 text-sm">
-                        <div className="col-span-2">Student</div>
-                        <div className="text-center">Level</div>
-                        <div className="text-center">Status</div>
-                        <div className="text-center">Actions</div>
-                    </div>
-                    
-                    {isLoading ? (
-                        Array.from({ length: 5 }).map((_, i) => (
-                            <div key={i} className="grid grid-cols-8 gap-4 items-center py-3 border-b border-white/10">
-                                <div className="col-span-2 flex items-center gap-3">
-                                    <div className="h-10 w-10 rounded-full bg-white/10 animate-pulse" />
-                                    <div className="space-y-1">
-                                        <div className="h-4 w-24 bg-white/10 rounded animate-pulse" />
-                                        <div className="h-3 w-20 bg-white/10 rounded animate-pulse" />
-                                    </div>
-                                </div>
-                                <div className="h-4 w-16 bg-white/10 rounded animate-pulse mx-auto" />
-                                <div className="h-4 w-16 bg-white/10 rounded animate-pulse mx-auto" />
-                                <div className="flex gap-2 justify-center">
-                                    <div className="h-8 w-8 bg-white/10 rounded animate-pulse" />
-                                    <div className="h-8 w-8 bg-white/10 rounded animate-pulse" />
-                                    <div className="h-8 w-8 bg-white/10 rounded animate-pulse" />
-                                </div>
-                            </div>
-                        ))
-                    ) : studentsData?.results?.map((student) => (
-                        <StudentRow key={student.id} student={student} />
-                    ))}
-                </div>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="col-span-2 text-white/70">Student</TableHead>
+                            <TableHead className="text-center text-white/70">Level</TableHead>
+                            <TableHead className="text-center text-white/70">Status</TableHead>
+                            <TableHead className="text-center text-white/70">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {isLoading ? (
+                            Array.from({ length: 5 }).map((_, i) => (
+                                <TableRow key={i}>
+                                    <TableCell className="col-span-2">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-10 w-10 rounded-full bg-white/10 animate-pulse" />
+                                            <div className="space-y-1">
+                                                <div className="h-4 w-24 bg-white/10 rounded animate-pulse" />
+                                                <div className="h-3 w-20 bg-white/10 rounded animate-pulse" />
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                        <div className="h-4 w-16 bg-white/10 rounded animate-pulse mx-auto" />
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                        <div className="h-4 w-16 bg-white/10 rounded animate-pulse mx-auto" />
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                        <div className="flex gap-2 justify-center">
+                                            <div className="h-8 w-8 bg-white/10 rounded animate-pulse" />
+                                            <div className="h-8 w-8 bg-white/10 rounded animate-pulse" />
+                                            <div className="h-8 w-8 bg-white/10 rounded animate-pulse" />
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : studentsData?.results?.map((student) => (
+                            <StudentRow key={student.id} student={student} />
+                        ))}
+                    </TableBody>
+                </Table>
             </div>
 
             {/* Pagination */}

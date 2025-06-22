@@ -73,12 +73,17 @@ const ResultsHub = ({ latestResults, pastElections }: ResultsHubProps) => {  con
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 1 }}
         >
-          <button
-            onClick={handleViewPastElections}
-            className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500/80 to-blue-500/80 hover:from-purple-500 hover:to-blue-500 text-white font-medium transition-all shadow-lg backdrop-blur-md border border-purple-500/30"
-          >
-            View Past Elections
-          </button>
+            <button
+              onClick={handleViewPastElections}
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500/20 to-blue-500/20 hover:from-purple-500/30 hover:to-blue-500/30 text-white font-medium transition-all duration-300 shadow-2xl backdrop-blur-xl border border-white/20 hover:border-white/30 hover:shadow-purple-500/25 hover:shadow-xl relative overflow-hidden group"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/5 to-transparent rounded-xl" />
+              <span className="relative z-10 flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                View Past Elections
+              </span>
+            </button>
         </motion.div>
       )}
     </div>

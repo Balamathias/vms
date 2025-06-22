@@ -110,7 +110,7 @@ const ElectionResults = ({ data, showBackButton = false }: ElectionResultsProps)
           {showBackButton && (
             <button 
               onClick={() => router.back()}
-              className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center text-white/70 hover:text-white transition-colors"
+              className="absolute left-0 -top-4 sm:top-1/2 -translate-y-1/2 flex items-center text-white/70 hover:text-white transition-colors"
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
               <span>Back</span>
@@ -182,13 +182,13 @@ const ElectionResults = ({ data, showBackButton = false }: ElectionResultsProps)
                   className="p-6 cursor-pointer hover:bg-white/5 transition-colors"
                   onClick={() => togglePosition(position.id)}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                       <div className="p-3 rounded-xl bg-white/10 border border-white/10">
                         {getPositionIcon(index)}
                       </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-white">{position.name}</h3>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-base sm:text-xl font-bold text-white truncate">{position.name}</h3>
                         <p className="text-white/60 text-sm">
                           {hasResults 
                             ? `${positionResult.candidates.length} candidates received votes`
@@ -198,10 +198,10 @@ const ElectionResults = ({ data, showBackButton = false }: ElectionResultsProps)
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-between sm:justify-end gap-4">
                       {hasResults && (
-                        <div className="text-right">
-                          <p className="text-white/80 text-sm font-medium">
+                        <div className="text-left sm:text-right flex-1 sm:flex-none min-w-0">
+                          <p className="text-white/80 text-sm font-medium truncate">
                             Winner: {positionResult.candidates[0]?.student_name}
                           </p>
                           <p className="text-white/60 text-xs">
@@ -213,6 +213,7 @@ const ElectionResults = ({ data, showBackButton = false }: ElectionResultsProps)
                       <motion.div
                         animate={{ rotate: isExpanded ? 180 : 0 }}
                         transition={{ duration: 0.3 }}
+                        className="flex-shrink-0"
                       >
                         <ChevronDown className="h-5 w-5 text-white/60" />
                       </motion.div>
@@ -266,7 +267,7 @@ const ElectionResults = ({ data, showBackButton = false }: ElectionResultsProps)
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">
                                     <div>
-                                      <h4 className="text-white font-semibold text-lg">
+                                      <h4 className="text-white font-semibold text-base sm:text-lg">
                                         {candidate.student_name}
                                       </h4>
                                       <p className="text-white/60 text-sm">

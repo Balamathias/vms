@@ -56,7 +56,7 @@ const PastElections = ({ elections, onSelectElection, onBack }: PastElectionsPro
         >
           <button 
             onClick={onBack}
-            className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center text-white/70 hover:text-white transition-colors"
+            className="absolute left-0 -top-3 -translate-y-1/2 flex items-center text-white/70 hover:text-white transition-colors"
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
             <span>Back to Latest Results</span>

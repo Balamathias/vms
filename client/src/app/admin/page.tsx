@@ -4,11 +4,13 @@ import { useAdminDashboard } from '@/services/client/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Users, Vote, Trophy, TrendingUp, Activity, Calendar, Award, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B'];
 
 export default function AdminDashboard() {
     const { data: dashboardData, isLoading, error } = useAdminDashboard();
+    const router = useRouter();
 
     if (isLoading) {
         return (
@@ -81,12 +83,12 @@ export default function AdminDashboard() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex sm:items-center justify-center sm:justify-between flex-col sm:flex-row gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
                     <p className="text-white/60 mt-1">Overview of your voting management system</p>
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white/70">
+                <div className="flex items-center gap-2 px-4 py-2 justify-center rounded-lg bg-white/10 border border-white/20 text-white/70">
                     <Activity className="h-4 w-4" />
                     <span className="text-sm">Real-time</span>
                 </div>
@@ -161,9 +163,17 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="mt-6 p-4 rounded-xl bg-green-500/20 border border-green-400/30">
-                        <div className="flex items-center gap-2 text-green-400">
-                            <Award className="h-4 w-4" />
-                            <span className="text-sm font-medium">Election is currently active and accepting votes</span>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-green-400">
+                                <Award className="h-4 w-4" />
+                                <span className="text-sm font-medium">Election is currently active and accepting votes</span>
+                            </div>
+                            <button
+                                onClick={() => router.push(`/results/${current_election.id}`)}
+                                className="px-4 py-2 text-sm rounded-lg bg-green-500/20 border border-green-400/30 cursor-pointer text-green-400 hover:bg-green-500/30 transition-all"
+                            >
+                                View Election
+                            </button>
                         </div>
                     </div>
                 </div>

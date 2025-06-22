@@ -179,6 +179,7 @@ export interface AdminDashboardData {
         new_candidates: number;
     };
     current_election: {
+        id: string;
         name: string;
         start_date: string;
         end_date: string;

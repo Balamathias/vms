@@ -84,21 +84,21 @@ const AwardsShowcase = ({ winners = [] }: AwardsShowcaseProps) => {
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto mt-16 mb-8 relative">
-      <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-teal-500/10 rounded-3xl blur-3xl -z-10" />
+    <div className="w-full max-w-6xl mx-auto mt-8 sm:mt-12 md:mt-16 mb-4 sm:mb-6 md:mb-8 relative px-4 sm:px-6 md:px-0">
+      <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-teal-500/10 rounded-xl sm:rounded-2xl md:rounded-3xl blur-xl sm:blur-2xl md:blur-3xl -z-10" />
       
-      <div className="text-center mb-10">
-        <h2 className="text-3xl font-bold inline-block bg-gradient-to-r from-amber-200 to-yellow-400 bg-clip-text text-transparent">
+      <div className="text-center mb-6 sm:mb-8 md:mb-10">
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold inline-block bg-gradient-to-r from-amber-200 to-yellow-400 bg-clip-text text-transparent">
           Award Winners Showcase
         </h2>
-        <p className="text-white/70 mt-2">Celebrating excellence and achievements</p>
+        <p className="text-white/70 mt-1 sm:mt-2 text-sm sm:text-base">Celebrating excellence and achievements</p>
       </div>
 
-      <div className="relative h-[450px] overflow-hidden rounded-3xl backdrop-blur-md border border-white/20 bg-white/5">
+      <div className="relative h-auto sm:h-[380px] md:h-[450px] overflow-hidden rounded-xl sm:rounded-2xl md:rounded-3xl backdrop-blur-md border border-white/20 bg-white/5">
         {/* Animated background */}
         <div className="absolute inset-0 overflow-hidden">
           <motion.div 
-            className="absolute -inset-[100px] opacity-30"
+            className="absolute -inset-[50px] sm:-inset-[75px] md:-inset-[100px] opacity-30"
             animate={{ 
               background: [
                 'radial-gradient(circle at 30% 30%, rgba(156, 39, 176, 0.3) 0%, transparent 70%)',
@@ -114,16 +114,17 @@ const AwardsShowcase = ({ winners = [] }: AwardsShowcaseProps) => {
 
         <div className="relative h-full flex flex-col md:flex-row">
           {/* Image side */}
-          <div className="w-full md:w-1/2 h-1/2 md:h-full relative overflow-hidden">
+          <div className="w-full md:w-1/2 h-[250px] sm:h-2/5 md:h-full relative overflow-hidden">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentAward.id}
-                className="absolute inset-0 p-6"
+                className="absolute inset-0 p-3 sm:p-4 md:p-6"
                 initial={{ opacity: 0, scale: 1.1 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.7 }}
-              >                <div className="relative h-full w-full overflow-hidden rounded-2xl">
+              >
+                <div className="relative h-full w-full overflow-hidden rounded-lg sm:rounded-xl md:rounded-2xl">
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />
                   <img 
                     src={currentAward.image} 

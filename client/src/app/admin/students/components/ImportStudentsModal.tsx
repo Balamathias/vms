@@ -76,7 +76,7 @@ export default function ImportStudentsModal({ onClose, onSuccess }: ImportStuden
                             </div>
                             <div className="text-sm text-white/70">
                                 <p className="mb-2">Your CSV file should have the following columns:</p>
-                                <code className="block p-2 bg-white/10 rounded text-xs">
+                                <code className="block p-2 bg-white/10 rounded text-xs break-all">
                                     matric_number,full_name,level,gender,state_of_origin,email,phone_number
                                 </code>
                                 <p className="mt-2 text-white/60">

@@ -28,7 +28,7 @@ export default function AdminHeader({ user }: AdminHeaderProps) {
 
     return (
         <header className="sticky top-0 z-30 border-b border-white/20 bg-white/5 backdrop-blur-xl">
-            <div className="flex items-center justify-between px-4 py-4 md:px-6">
+            <div className="flex items-center justify-between px-4 py-4 md:px-6 gap-2">
                 {/* Search */}
                 <div className="flex-1 max-w-xl">
                     <div className="relative">

@@ -281,6 +281,7 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
         except Exception as e:
             logger.error(f"Analytics failed: {str(e)}")
             return self.response(error={"detail": "Analytics retrieval failed."}, status_code=500)
+        
 
 class ElectionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
     queryset = Election.objects.all().order_by('-start_date')
@@ -444,42 +445,6 @@ class ElectionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
         except Exception as e:
             logger.error(f"Error retrieving last concluded election: {str(e)}")
             return self.response(error={"detail": "An error occurred while retrieving the election results."}, status_code=500)
-
-
-# class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixin):
-#     queryset = Vote.objects.all()
-#     serializer_class = VoteSerializer
-#     permission_classes = [IsAuthenticated]
-
-#     def get_serializer(self, *args, **kwargs):
-#         serializer = super().get_serializer(*args, **kwargs)
-#         # Update queryset for student_voted_for based on position
-#         if hasattr(serializer, 'initial_data') and 'position' in serializer.initial_data:
-#             try:
-#                 position = Position.objects.get(id=serializer.initial_data['position'])
-#                 serializer.fields['student_voted_for'].queryset = position.get_eligible_candidates()
-#             except Position.DoesNotExist:
-#                 pass
-#         return serializer
-
-#     def create(self, request, *args, **kwargs):
-#         serializer = self.get_serializer(data=request.data)
-#         try:
-#             serializer.is_valid(raise_exception=True)
-#             self.perform_create(serializer)
-#             return self.response(data=serializer.data, message="Vote cast successfully.", status_code=201)
-#         except ValidationError as e:
-#             return self.response(error={"detail": str(e)}, status_code=400)
-#         except Exception as e:
-#             logger.error(f"Error casting vote: {str(e)}")
-#             return self.response(error={"detail": "An error occurred while casting your vote."}, status_code=500)
-
-#     def perform_create(self, serializer):
-#         voter = self.request.user
-#         position = serializer.validated_data['position']
-#         if Vote.objects.filter(voter=voter, position=position).exists():
-#             raise ValidationError("You have already voted for this position.")
-#         serializer.save(voter=voter)
 
 
 class PositionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
@@ -896,6 +861,7 @@ class AdminDashboardView(APIView, ResponseMixin):
                     participation_rate = (election_votes / (eligible_voters * positions_count)) * 100
                 
                 current_election_data = {
+                    'id': current_election.id,
                     'name': current_election.name,
                     'start_date': current_election.start_date,
                     'end_date': current_election.end_date,
