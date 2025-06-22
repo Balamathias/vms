@@ -43,8 +43,9 @@ export interface Position extends BaseEntity {
     name: string;
     election_name?: string;
     has_voted?: boolean;
+    vote_count?: number;
     candidate_count?: number;
-    election?: string; // Election ID
+    election?: string;
     gender_restriction: 'any' | 'male' | 'female';
 }
 

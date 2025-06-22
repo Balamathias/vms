@@ -170,7 +170,7 @@ function PositionCard({ position }: { position: Position }) {
                         <div className="text-xs text-white/60">Candidates</div>
                     </div>
                     <div className="text-center">
-                        <div className="text-lg font-semibold text-white">0</div>
+                        <div className="text-lg font-semibold text-white">{position?.vote_count || 0}</div>
                         <div className="text-xs text-white/60">Votes</div>
                     </div>
                 </div>

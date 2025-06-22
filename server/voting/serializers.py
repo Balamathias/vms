@@ -67,15 +67,19 @@ class DynamicCandidateSerializer(serializers.ModelSerializer):
 class PositionSerializer(serializers.ModelSerializer):
     candidates = serializers.SerializerMethodField()
     candidate_count = serializers.SerializerMethodField()
+    vote_count = serializers.SerializerMethodField()
     election_name = serializers.CharField(source='election.name', read_only=True)
     has_voted = serializers.SerializerMethodField()
 
     class Meta:
         model = Position
-        fields = ['id', 'name', 'candidate_count', 'election_name', 'candidates', 'has_voted', 'gender_restriction', 'election']
+        fields = ['id', 'name', 'candidate_count', 'vote_count', 'election_name', 'candidates', 'has_voted', 'gender_restriction', 'election']
 
     def get_candidate_count(self, position):
         return position.get_eligible_candidates().count()
+
+    def get_vote_count(self, position):
+        return position.votes.count()
 
     def get_candidates(self, position):
         # Only return candidates when fetching position detail (single instance)
