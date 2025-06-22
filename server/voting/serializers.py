@@ -24,9 +24,10 @@ class StudentSerializer(serializers.ModelSerializer):
         model = Student
         fields = [
             'id', 'matric_number', 'full_name', 'level', 'state_of_origin', 
-            'email', 'phone_number', 'picture', 'status', 'is_active', 'date_joined'
+            'email', 'phone_number', 'picture', 'status', 'is_active', 'date_joined',
+            'is_staff', 'is_superuser'
         ]
-        read_only_fields = ['is_active', 'date_joined']
+        read_only_fields = ['is_active', 'date_joined', 'is_staff', 'is_superuser']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
