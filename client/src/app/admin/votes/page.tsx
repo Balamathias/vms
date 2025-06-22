@@ -42,15 +42,15 @@ export default function VotesPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-white">Voting Activity</h1>
-                    <p className="text-white/60 mt-1">Monitor all voting activity and export data</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white">Voting Activity</h1>
+                    <p className="text-white/60 mt-1 text-sm sm:text-base">Monitor all voting activity and export data</p>
                 </div>
                 <button
                     onClick={handleExport}
                     disabled={isExporting}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500/20 border border-green-400/30 text-green-400 hover:bg-green-500/30 transition-all"
+                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-green-500/20 border border-green-400/30 text-green-400 hover:bg-green-500/30 transition-all whitespace-nowrap"
                 >
                     <Download className="h-4 w-4" />
                     {isExporting ? 'Exporting...' : 'Export CSV'}

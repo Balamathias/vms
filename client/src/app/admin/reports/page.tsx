@@ -62,32 +62,32 @@ export default function ReportsPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-white">Reports & Analytics</h1>
-                    <p className="text-white/60 mt-1">Comprehensive system insights and data exports</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white">Reports & Analytics</h1>
+                    <p className="text-white/60 mt-1 text-sm sm:text-base">Comprehensive system insights and data exports</p>
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white/70">
+                <div className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white/70 self-start sm:self-auto">
                     <Calendar className="h-4 w-4" />
-                    <span className="text-sm">Last updated: {new Date().toLocaleDateString()}</span>
+                    <span className="text-xs sm:text-sm">Last updated: {new Date().toLocaleDateString()}</span>
                 </div>
             </div>
 
             {/* Report Tabs */}
             <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/20 p-2">
-                <div className="flex space-x-1">
+                <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-1">
                     {reportTabs.map((tab) => (
                         <button
                             key={tab.id}
                             onClick={() => setSelectedReport(tab.id)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            className={`flex items-center justify-center sm:justify-start gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                                 selectedReport === tab.id
                                     ? 'bg-gradient-to-r from-white/20 to-white/10 text-white border border-white/30'
                                     : 'text-white/70 hover:text-white hover:bg-white/10'
                             }`}
                         >
                             <tab.icon className="h-4 w-4" />
-                            {tab.name}
+                            <span className="inline">{tab.name}</span>
                         </button>
                     ))}
                 </div>

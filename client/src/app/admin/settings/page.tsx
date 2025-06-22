@@ -57,15 +57,15 @@ export default function SettingsPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-white">System Settings</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white">System Settings</h1>
                     <p className="text-white/60 mt-1">Configure system preferences and behavior</p>
                 </div>
                 <button
                     onClick={form.handleSubmit(handleSave)}
                     disabled={isSaving}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 transition-all disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 transition-all disabled:opacity-50 w-full sm:w-auto"
                 >
                     {isSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     {isSaving ? 'Saving...' : 'Save Changes'}
@@ -74,19 +74,19 @@ export default function SettingsPage() {
 
             {/* Settings Tabs */}
             <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/20 p-2">
-                <div className="flex space-x-1">
+                <div className="flex flex-wrap sm:flex-nowrap space-x-1 gap-1">
                     {settingsTabs.map((tab) => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-none justify-center ${
                                 activeTab === tab.id
                                     ? 'bg-gradient-to-r from-white/20 to-white/10 text-white border border-white/30'
                                     : 'text-white/70 hover:text-white hover:bg-white/10'
                             }`}
                         >
                             <tab.icon className="h-4 w-4" />
-                            {tab.name}
+                            <span className="hidden xs:inline">{tab.name}</span>
                         </button>
                     ))}
                 </div>

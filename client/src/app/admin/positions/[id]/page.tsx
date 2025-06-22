@@ -72,16 +72,16 @@ export default function PositionDetailPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <button
                     onClick={() => router.back()}
                     className="p-2 rounded-lg bg-white/10 border border-white/20 text-white/70 hover:text-white hover:bg-white/20 transition-all"
                 >
                     <ArrowLeft className="h-5 w-5" />
                 </button>
-                <div>
-                    <h1 className="text-3xl font-bold text-white">{position.name}</h1>
-                    <p className="text-white/60 mt-1">Position Analytics - {position.election_name}</p>
+                <div className="flex-1">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white break-words">{position.name}</h1>
+                    <p className="text-white/60 mt-1 text-sm sm:text-base break-words">Position Analytics - {position.election_name}</p>
                 </div>
             </div>
 
