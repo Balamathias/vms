@@ -1,13 +1,23 @@
 import Home from '@/components/main/home'
 import { getUser } from '@/services/server/auth'
+import { getRecentWinners } from '@/services/server/api'
 import React from 'react'
 
 const Page = async () => {
-  const { data: user } = await getUser()
+  const [userResponse, winnersResponse] = await Promise.all([
+    getUser(),
+    getRecentWinners()
+  ])
+  
+  const user = userResponse?.data
+  const winners = winnersResponse?.data || []
+  
   console.log("User data:", user)
+  console.log("Winners data:", winners)
+  
   return (
     <div>
-      <Home user={user} />
+      <Home user={user} winners={winners} />
     </div>
   )
 }

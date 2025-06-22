@@ -6,13 +6,14 @@ import { Vote, Trophy, CheckCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import AwardsShowcase from '@/components/main/award-showcase'
 import Navbar from '@/components/main/navbar'
-import { Student } from '@/@types/db'
+import { Student, RecentWinner } from '@/@types/db'
 
 interface HomeProps {
     user?: Student
+    winners?: RecentWinner[]
 }
 
-const Home = ({ user }: HomeProps) => {
+const Home = ({ user, winners }: HomeProps) => {
 
   const router = useRouter()
 
@@ -85,10 +86,11 @@ const Home = ({ user }: HomeProps) => {
             </button>
           </motion.div>
         </div>
-        
-        {/* Add the Awards Showcase component */}
+          {/* Add the Awards Showcase component */}
       </div>
-      <AwardsShowcase />
+      {
+        winners?.length && <AwardsShowcase winners={winners} />
+      }
     </>
   )
 }

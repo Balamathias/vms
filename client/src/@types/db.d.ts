@@ -96,6 +96,7 @@ export interface ApiResponse<T = any> {
 export interface ElectionResultCandidate {
     student_id: string;
     student_name: string;
+    picture?: string;
     vote_count: number;
 }
 
@@ -103,6 +104,15 @@ export interface ElectionResultPosition {
     position_id: string;
     position_name: string;
     candidates: ElectionResultCandidate[];
+}
+
+export interface RecentWinner {
+    position_name: string;
+    winner_name: string;
+    winner_picture?: string;
+    vote_count: number;
+    election_name: string;
+    election_year: number;
 }
 
 export interface ElectionPositions extends Election {
@@ -121,6 +131,7 @@ export interface PositionCandidates extends Position {
 }
 
 export type ElectionResults = ElectionResultPosition[];
+export type RecentWinnersResponse = ApiResponse<RecentWinner[]>;
 
 // API endpoint response types
 export type LoginResponse = ApiResponse<TokenPair>;

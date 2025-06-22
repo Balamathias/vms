@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useLogin } from '@/services/client/auth'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 const loginSchema = z.object({
     matricNumber: z
@@ -51,12 +52,14 @@ const LoginPage = () => {
             onSuccess: (data) => {
                 if (data.error) {
                     form.setError('root', { message: data.message })
+                    toast.error(data.message)
                     return
                 }
                 router.replace('/')
             },
             onError: (error) => {
                 form.setError('root', { message: error.message })
+                toast.error(error.message)
             },
         })
     }

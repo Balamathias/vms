@@ -72,9 +72,9 @@ export async function login({ matric_number, password }: LoginCredentials): Prom
   } catch (error: any) {
     return {
       data: null,
-      message: error?.response?.data?.detail,
+      message: error?.response?.detail || error?.response?.error?.detail || error?.response?.data?.detail,
       status: error?.status,
-      error: { detail: error?.response?.data?.message || error?.response?.data?.detail }
+      error: { detail: error?.response?.detail || error?.response?.error?.detail || error?.response?.data?.detail }
     }
   }
 }

@@ -106,6 +106,22 @@ class ElectionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
     serializer_class = ActiveElectionSerializer
     permission_classes = [AllowAny]
 
+    def list(self, request, *args, **kwargs):
+        """
+        Returns a list of all elections.
+        """
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return self.response(data=serializer.data, message="List of all elections retrieved successfully.")
+
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Returns details of a specific election.
+        """
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return self.response(data=serializer.data, message="Election details retrieved successfully.")
+
     @action(detail=False, methods=['get'], url_path='active')
     def active_election(self, request):
         try:
@@ -124,23 +140,129 @@ class ElectionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
             return self.response(error={"detail": "Results not available until the election ends."}, status_code=403)
 
         vote_data = Vote.objects.filter(position__election=election) \
+            .select_related('student_voted_for') \
             .values('position__id', 'position__name', 'student_voted_for__id', 'student_voted_for__full_name') \
             .annotate(vote_count=Count('id')).order_by('position__name', '-vote_count')
 
         grouped = {}
         for vote in vote_data:
             pid = vote['position__id']
+            
+            # Get the actual student object to access the picture URL properly
+            student = Student.objects.get(id=vote['student_voted_for__id'])
+            picture_url = student.picture.url if student.picture else None
+            
             grouped.setdefault(pid, {
-                'position_id': pid,
-                'position_name': vote['position__name'],
-                'candidates': []
+            'position_id': pid,
+            'position_name': vote['position__name'],
+            'candidates': []
             })['candidates'].append({
-                'student_id': vote['student_voted_for__id'],
-                'student_name': vote['student_voted_for__full_name'],
-                'vote_count': vote['vote_count']
+            'student_id': vote['student_voted_for__id'],
+            'student_name': vote['student_voted_for__full_name'],
+            'picture': picture_url,
+            'vote_count': vote['vote_count']
             })
 
-        return self.response(data=list(grouped.values()), message="Election results retrieved successfully.")
+        election_data = self.get_serializer(election).data
+        election_data['results'] = list(grouped.values())
+        
+        return self.response(data=election_data, message="Election results retrieved successfully.")
+    
+    @action(detail=False, methods=['get'], url_path='recent-winners')
+    def recent_winners(self, request):
+        """
+        Returns recent winners from concluded elections for the showcase.
+        """
+        try:
+            # Get the most recent concluded elections
+            concluded_elections = Election.objects.filter(
+                end_date__lt=timezone.now()
+            ).order_by('-end_date')[:3]  # Last 3 elections
+            
+            winners_data = []
+            
+            for election in concluded_elections:
+                # Get winners (top vote getters) from each position
+                vote_data = Vote.objects.filter(position__election=election) \
+                    .select_related('student_voted_for', 'position') \
+                    .values('position__id', 'position__name', 'student_voted_for__id', 'student_voted_for__full_name') \
+                    .annotate(vote_count=Count('id')).order_by('position__name', '-vote_count')
+                
+                # Group by position and get the top candidate for each position
+                position_winners = {}
+                for vote in vote_data:
+                    pid = vote['position__id']
+                    if pid not in position_winners:
+                        student = Student.objects.get(id=vote['student_voted_for__id'])
+                        picture_url = student.picture.url if student.picture else None
+                        
+                        position_winners[pid] = {
+                            'position_name': vote['position__name'],
+                            'winner_name': vote['student_voted_for__full_name'],
+                            'winner_picture': picture_url,
+                            'vote_count': vote['vote_count'],
+                            'election_name': election.name,
+                            'election_year': election.end_date.year
+                        }
+                
+                # Add position winners to the showcase
+                for winner in position_winners.values():
+                    winners_data.append(winner)
+            
+            # Limit to 8 most recent winners for the showcase
+            winners_data = winners_data[:8]
+            
+            return self.response(data=winners_data, message="Recent winners retrieved successfully.") 
+        except Exception as e:
+            logger.error(f"Error retrieving recent winners: {str(e)}")
+            return self.response(error={"detail": "An error occurred while retrieving recent winners."}, status_code=500)  
+             
+    @action(detail=False, methods=['get'], url_path='last-concluded')
+    def last_concluded_election(self, request):
+        """
+        Returns the most recently concluded election with its results.
+        """
+        try:
+            concluded_election = Election.objects.filter(
+                end_date__lt=timezone.now()
+            ).order_by('-end_date').first()
+            
+            if not concluded_election:
+                return self.response(error={"detail": "No concluded election found."}, status_code=404)
+            
+            # Get results for the concluded election
+            vote_data = Vote.objects.filter(position__election=concluded_election) \
+                .select_related('student_voted_for') \
+                .values('position__id', 'position__name', 'student_voted_for__id', 'student_voted_for__full_name') \
+                .annotate(vote_count=Count('id')).order_by('position__name', '-vote_count')
+
+            grouped = {}
+            for vote in vote_data:
+                pid = vote['position__id']
+                
+                # Get the actual student object to access the picture URL properly
+                student = Student.objects.get(id=vote['student_voted_for__id'])
+                picture_url = student.picture.url if student.picture else None
+                
+                grouped.setdefault(pid, {
+                    'position_id': pid,
+                    'position_name': vote['position__name'],
+                    'candidates': []
+                })['candidates'].append({
+                    'student_id': vote['student_voted_for__id'],
+                    'student_name': vote['student_voted_for__full_name'],
+                    'picture': picture_url,
+                    'vote_count': vote['vote_count']
+                })
+
+            election_data = self.get_serializer(concluded_election).data
+            election_data['results'] = list(grouped.values())
+            
+            return self.response(data=election_data, message="Last concluded election results retrieved successfully.")
+            
+        except Exception as e:
+            logger.error(f"Error retrieving last concluded election: {str(e)}")
+            return self.response(error={"detail": "An error occurred while retrieving the election results."}, status_code=500)
 
 
 class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixin):

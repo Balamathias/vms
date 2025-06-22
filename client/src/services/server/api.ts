@@ -67,3 +67,82 @@ export const voteCandidate = async (voteData: VoteFormData): Promise<StackRespon
     };
   }
 }
+
+export const getElections = async (): Promise<PaginatedStackResponse<ElectionPositions[]>> => {
+  try {
+    const { data } = await stackbase.get("/elections/");
+    return data;
+  } catch (error: any) {
+    console.error("Error fetching elections:", error);
+    return {
+      message: error?.response?.error?.detail || "An error occurred while fetching elections.",
+      error: error?.response?.data,
+      status: error?.response?.status || 500,
+      data: [],
+      count: 0,
+      next: '',
+      previous: '',
+    };
+  }
+}
+
+export const getElection = async (electionId: string): Promise<StackResponse<ElectionPositions | null>> => {
+  try {
+    const { data } = await stackbase.get(`/elections/${electionId}/`);
+    return data;
+  } catch (error: any) {
+    console.error("Error fetching election:", error);
+    return {
+      message: error?.response?.error?.detail || "An error occurred while fetching the election.",
+      error: error?.response?.data,
+      status: error?.response?.status || 500,
+      data: null,
+    };
+  }
+}
+
+export const getJustConcludedElectionResults = async (): Promise<StackResponse<any>> => {
+  try {
+    const { data } = await stackbase.get("/elections/last-concluded/");
+    return data;
+  } catch (error: any) {
+    console.error("Error fetching active election results:", error);
+    return {
+      message: error?.response?.error?.detail || "An error occurred while fetching the last concluded election results.",
+      error: error?.response?.data,
+      status: error?.response?.status || 500,
+      data: null,
+    };
+  }
+}
+
+
+export const getElectionResults = async (electionId: string): Promise<StackResponse<any>> => {
+  try {
+    const { data } = await stackbase.get(`/elections/${electionId}/results/`);
+    return data;
+  } catch (error: any) {
+    console.error("Error fetching election results:", error);
+    return {
+      message: error?.response?.error?.detail || "An error occurred while fetching the election results.",
+      error: error?.response?.data,
+      status: error?.response?.status || 500,
+      data: null,
+    };
+  }
+}
+
+export const getRecentWinners = async (): Promise<StackResponse<any>> => {
+  try {
+    const { data } = await stackbase.get("/elections/recent-winners/");
+    return data;
+  } catch (error: any) {
+    console.error("Error fetching recent winners:", error);
+    return {
+      message: error?.response?.error?.detail || "An error occurred while fetching recent winners.",
+      error: error?.response?.data,
+      status: error?.response?.status || 500,
+      data: null,
+    };
+  }
+}

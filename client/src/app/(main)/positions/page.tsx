@@ -5,10 +5,12 @@ import { motion } from 'framer-motion'
 import { Clock, BarChart } from 'lucide-react'
 import PositionList from '@/components/positions/position-list'
 import { useActiveElection } from '@/services/client/api'
+import { useRouter } from 'next/navigation'
 
 
 const PositionsPage = () => {
   const [timeLeft, setTimeLeft] = useState('')
+  const router = useRouter()
 
   const { data: activeElection, isPending } = useActiveElection()
   const election = activeElection?.data
@@ -107,7 +109,7 @@ const PositionsPage = () => {
         
         <div className="h-10 w-px bg-white/10 hidden md:block" />
         
-        <button className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-white transition-colors">
+        <button onClick={() => router.push(`/results`)} className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-white transition-colors cursor-pointer">
           View Results
         </button>
       </motion.div>

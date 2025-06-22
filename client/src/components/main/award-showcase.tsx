@@ -2,76 +2,85 @@
 
 import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Award, ChevronLeft, ChevronRight, Crown, Medal, Trophy } from 'lucide-react'
+import { Award, ChevronLeft, ChevronRight, Crown, Medal, Trophy, Users } from 'lucide-react'
+import { RecentWinner } from '@/@types/db'
 
 type Award = {
-  id: number
+  id: string
   title: string
   recipient: string
   year: number
   image: string
   icon: React.ReactNode
+  voteCount: number
+  electionName: string
 }
 
-const sampleAwards: Award[] = [
-  {
-    id: 1,
-    title: "Best Academic Performance",
-    recipient: "Aisha Mohammed",
-    year: 2023,
-    image: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e",
-    icon: <Trophy className="w-10 h-10 text-amber-300" />
-  },
-  {
-    id: 2,
-    title: "Most Innovative Project",
-    recipient: "Chukwudi Okonkwo",
-    year: 2023,
-    image: "https://images.unsplash.com/photo-1560250097-0b93528c311a",
-    icon: <Award className="w-10 h-10 text-blue-300" />
-  },
-  {
-    id: 3,
-    title: "Leadership Excellence",
-    recipient: "Fatima Ibrahim",
-    year: 2023,
-    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2",
-    icon: <Crown className="w-10 h-10 text-purple-300" />
-  },
-  {
-    id: 4,
-    title: "Outstanding Community Service",
-    recipient: "Emmanuel Adebayo",
-    year: 2023,
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d",
-    icon: <Medal className="w-10 h-10 text-green-300" />
-  }
-]
+type AwardsShowcaseProps = {
+  winners?: RecentWinner[]
+}
 
-const AwardsShowcase = () => {
+const AwardsShowcase = ({ winners = [] }: AwardsShowcaseProps) => {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [autoplay, setAutoplay] = useState(true)
   
+  // Convert RecentWinner data to Award format
+  const getPositionIcon = (positionName: string) => {
+    const name = positionName.toLowerCase()
+    if (name.includes('innovative') || name.includes('creative')) {
+      return <Award className="w-10 h-10 text-blue-300" />
+    } else if (name.includes('leader') || name.includes('best') || name.includes('top')) {
+      return <Crown className="w-10 h-10 text-purple-300" />
+    } else if (name.includes('academic') || name.includes('scholar') || name.includes('succeed')) {
+      return <Trophy className="w-10 h-10 text-amber-300" />
+    } else {
+      return <Medal className="w-10 h-10 text-green-300" />
+    }
+  }
+  
+  const fallbackImages = [
+    "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e",
+    "https://images.unsplash.com/photo-1560250097-0b93528c311a", 
+    "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2",
+    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d",
+    "https://images.unsplash.com/photo-1494790108755-2616b62e99a0",
+    "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e"
+  ]
+    const transformedAwards: Award[] = winners.length > 0 
+    ? winners.map((winner, index) => ({
+        id: `${winner.position_name}-${winner.election_year}`,
+        title: winner.position_name,
+        recipient: winner.winner_name,
+        year: winner.election_year,
+        image: winner.winner_picture || `${fallbackImages[index % fallbackImages.length]}?q=80&w=800&h=800&fit=crop`,
+        icon: getPositionIcon(winner.position_name),
+        voteCount: winner.vote_count,
+        electionName: winner.election_name
+      }))
+    : []
+  
   useEffect(() => {
-    if (!autoplay) return
+    if (!autoplay || transformedAwards.length <= 1) return
     
     const interval = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % sampleAwards.length)
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % transformedAwards.length)
     }, 5000)
     
     return () => clearInterval(interval)
-  }, [autoplay])
+  }, [autoplay, transformedAwards.length])
   
-  const currentAward = sampleAwards[currentIndex]
+  const currentAward = transformedAwards[currentIndex]
   
   const nextAward = () => {
+    if (transformedAwards.length <= 1) return
     setAutoplay(false)
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % sampleAwards.length)
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % transformedAwards.length)
   }
   
   const prevAward = () => {
+    if (transformedAwards.length <= 1) return
     setAutoplay(false)
-    setCurrentIndex((prevIndex) => (prevIndex - 1 + sampleAwards.length) % sampleAwards.length)
+    setCurrentIndex((prevIndex) => (prevIndex - 1 + transformedAwards.length) % transformedAwards.length)
   }
 
   return (
@@ -114,14 +123,19 @@ const AwardsShowcase = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.7 }}
-              >
-                <div className="relative h-full w-full overflow-hidden rounded-2xl">
+              >                <div className="relative h-full w-full overflow-hidden rounded-2xl">
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />
-                  {/* <img 
-                    src={`${currentAward.image}?q=80&w=800&h=800&fit=crop`} 
-                    alt={currentAward.title} 
+                  <img 
+                    src={currentAward.image} 
+                    alt={currentAward.recipient} 
                     className="h-full w-full object-cover"
-                  /> */}
+                    onError={(e) => {
+                      // Fallback to a random fallback image if the current one fails
+                      const target = e.target as HTMLImageElement;
+                      const randomIndex = Math.floor(Math.random() * fallbackImages.length);
+                      target.src = `${fallbackImages[randomIndex]}?q=80&w=800&h=800&fit=crop`;
+                    }}
+                  />
                   <div className="absolute bottom-6 left-6 z-20 text-white">
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
@@ -150,17 +164,27 @@ const AwardsShowcase = () => {
               >
                 <div className="mb-6">
                   {currentAward.icon}
-                </div>
-                <h3 className="text-3xl font-bold text-white mb-4">{currentAward.title}</h3>
+                </div>                <h3 className="text-3xl font-bold text-white mb-4">{currentAward.title}</h3>
                 <div className="h-[1px] w-16 bg-gradient-to-r from-white/60 to-transparent mb-6" />
-                <p className="text-white/70 mb-8">
+                <p className="text-white/70 mb-4">
                   Awarded to <span className="text-white font-semibold">{currentAward.recipient}</span> for 
                   exemplary achievements and contributions to the university community.
                 </p>
+                <div className="text-white/60 text-sm mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      <span>{currentAward.voteCount} votes</span>
+                    </div>
+                    <div>
+                      <span>{currentAward.electionName}</span>
+                    </div>
+                  </div>
+                </div>
                 
                 <div className="mt-auto flex justify-between items-center">
                   <div className="text-white/60 text-sm">
-                    {currentIndex + 1} of {sampleAwards.length}
+                    {currentIndex + 1} of {transformedAwards.length}
                   </div>
                   <div className="flex gap-2">
                     <button 
@@ -181,11 +205,9 @@ const AwardsShowcase = () => {
             </AnimatePresence>
           </div>
         </div>
-      </div>
-
-      {/* Navigation dots */}
+      </div>      {/* Navigation dots */}
       <div className="flex justify-center mt-6 gap-2">
-        {sampleAwards.map((_, index) => (
+        {transformedAwards.map((_, index) => (
           <button
             key={index}
             onClick={() => {
