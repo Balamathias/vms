@@ -135,9 +135,15 @@ export default function AdminSidebar() {
                                 <Shield className="h-4 w-4 text-amber-400" />
                                 <span className="text-sm font-medium text-amber-400">Admin Access</span>
                             </div>
-                            <p className="text-xs text-white/60">
+                            <p className="text-xs text-white/60 mb-3">
                                 You have administrative privileges for this system.
                             </p>
+                            <Link 
+                                href="/"
+                                className="text-xs text-amber-400 hover:text-amber-300 transition-colors underline underline-offset-2"
+                            >
+                                ← Back to Main Site
+                            </Link>
                         </div>
                     </div>
                 </div>
