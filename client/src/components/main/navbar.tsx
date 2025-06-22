@@ -102,7 +102,7 @@ const Navbar = ({ user }: NavbarProps) => {
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 via-blue-400 to-teal-400 flex items-center justify-center text-white font-semibold text-sm">
                     {getInitials(user.full_name)}
                   </div>
-                  <button className="flex flex-col text-left"
+                  <button className="flex flex-col text-left cursor-pointer"
                     onClick={user?.is_staff ? () => router.push('/admin') : undefined}
                     disabled={!user?.is_staff}
                   >
@@ -114,7 +114,7 @@ const Navbar = ({ user }: NavbarProps) => {
                 {/* Logout Button */}
                 <motion.button
                   onClick={handleLogout}
-                  className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 hover:bg-red-500/20 transition-colors"
+                  className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 hover:bg-red-500/20 transition-colors cursor-pointer"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   disabled={isPending}
@@ -125,7 +125,7 @@ const Navbar = ({ user }: NavbarProps) => {
             ) : (
               <motion.button
                 onClick={handleLogin}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-white font-medium hover:from-amber-500/30 hover:to-orange-500/30 transition-all"
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-white font-medium hover:from-amber-500/30 hover:to-orange-500/30 transition-all cursor-pointer"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -140,7 +140,7 @@ const Navbar = ({ user }: NavbarProps) => {
           {/* Mobile Menu Button */}
           <motion.button
             onClick={toggleMenu}
-            className="md:hidden p-2 rounded-lg bg-white/5 border border-white/10 text-white"
+            className="md:hidden p-2 rounded-lg bg-white/5 border border-white/10 text-white cursor-pointer"
             whileTap={{ scale: 0.95 }}
           >
             {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -173,7 +173,7 @@ const Navbar = ({ user }: NavbarProps) => {
                   </div>
                   <motion.button
                     onClick={handleLogout}
-                    className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300"
+                    className="cursor-pointer w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300"
                     whileTap={{ scale: 0.98 }}
                     disabled={isPending}
                   >
@@ -184,7 +184,7 @@ const Navbar = ({ user }: NavbarProps) => {
               ) : (
                 <motion.button
                   onClick={handleLogin}
-                  className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-white font-medium"
+                  className="cursor-pointer w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-white font-medium"
                   whileTap={{ scale: 0.98 }}
                 >
                   <User className="w-4 h-4" />

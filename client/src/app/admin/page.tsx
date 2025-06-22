@@ -86,7 +86,7 @@ export default function AdminDashboard() {
             <div className="flex sm:items-center justify-center sm:justify-between flex-col sm:flex-row gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
-                    <p className="text-white/60 mt-1">Overview of your voting management system</p>
+                    <p className="text-white/60 mt-1">Overview of voting management system</p>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 justify-center rounded-lg bg-white/10 border border-white/20 text-white/70">
                     <Activity className="h-4 w-4" />
@@ -211,13 +211,19 @@ export default function AdminDashboard() {
                 <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/20 p-6">
                     <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
                     <div className="space-y-3">
-                        <button className="w-full p-3 rounded-xl bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-400/30 text-blue-400 hover:from-blue-500/30 hover:to-blue-600/30 transition-all">
+                        <button
+                            onClick={() => router.push('/admin/students?import=true')}
+                            className="cursor-pointer w-full p-3 rounded-xl bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-400/30 text-blue-400 hover:from-blue-500/30 hover:to-blue-600/30 transition-all">
                             Import Students
                         </button>
-                        <button className="w-full p-3 rounded-xl bg-gradient-to-r from-purple-500/20 to-purple-600/20 border border-purple-400/30 text-purple-400 hover:from-purple-500/30 hover:to-purple-600/30 transition-all">
+                        <button
+                            onClick={() => router.push('/admin/elections?create=true')}
+                            className="cursor-pointer w-full p-3 rounded-xl bg-gradient-to-r from-purple-500/20 to-purple-600/20 border border-purple-400/30 text-purple-400 hover:from-purple-500/30 hover:to-purple-600/30 transition-all">
                             Create Election
                         </button>
-                        <button className="w-full p-3 rounded-xl bg-gradient-to-r from-green-500/20 to-green-600/20 border border-green-400/30 text-green-400 hover:from-green-500/30 hover:to-green-600/30 transition-all">
+                        <button
+                            onClick={() => router.push('/admin/reports?export=true')}
+                                 className="cursor-pointer w-full p-3 rounded-xl bg-gradient-to-r from-green-500/20 to-green-600/20 border border-green-400/30 text-green-400 hover:from-green-500/30 hover:to-green-600/30 transition-all">
                             Export Reports
                         </button>
                     </div>

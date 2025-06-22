@@ -13,15 +13,19 @@ import { toast } from 'sonner';
 import { getCookie } from 'cookies-next/client'
 import { API_URL } from '@/services/utils';
 import axios from 'axios';
+import { useSearchParams } from 'next/navigation';
+import { QUERY_KEYS, useCreateElection, useToggleElectionStatus } from '@/services/client/api';
 
-interface ElectionFormData {
+export interface ElectionFormData {
     name: string;
     start_date: string;
     end_date: string;
 }
 
 export default function ElectionsPage() {
-    const [showCreateModal, setShowCreateModal] = useState(false);
+
+    const searchParams = useSearchParams()
+    const [showCreateModal, setShowCreateModal] = useState(Boolean(searchParams.get('create')) || false);
     const queryClient = useQueryClient();
 
     const { data: electionsData, isLoading } = useQuery({
@@ -29,49 +33,9 @@ export default function ElectionsPage() {
         queryFn: () => getElections()
     });
 
-    const createElectionMutation = useMutation({
-        mutationFn: async (data: ElectionFormData) => {
-            const response = await fetch('/api/v1/elections/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-                },
-                body: JSON.stringify(data)
-            });
-            if (!response.ok) throw new Error('Failed to create election');
-            return response.json();
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['elections'] });
-            setShowCreateModal(false);
-            toast.success('Election created successfully');
-        },
-        onError: () => {
-            toast.error('Failed to create election');
-        }
-    });
+    const createElectionMutation = useCreateElection();
 
-    const toggleElectionMutation = useMutation({
-        mutationFn: async (electionId: string) => {
-            const token = getCookie('token') as string;
-            const response = await axios.patch(`${API_URL}/elections/${electionId}/toggle_status/`, null, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            return response.data;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['elections'] });
-            toast.success('Election status updated');
-        },
-        onError: (e) => {
-            toast.error('Failed to update election status', {
-                description: String(e.message)
-            });
-        }
-    });
+    const toggleElectionMutation = useToggleElectionStatus()
 
     return (
         <div className="space-y-6">
@@ -100,7 +64,15 @@ export default function ElectionsPage() {
                     <ElectionCard 
                         key={election.id} 
                         election={election} 
-                        onToggleStatus={(id) => toggleElectionMutation.mutate(id)}
+                        onToggleStatus={(id) => toggleElectionMutation.mutate(id, {
+                            onSuccess: () => {
+                                toast.success(`Election ${election.is_active ? 'paused' : 'activated'} successfully`);
+                                queryClient.invalidateQueries({ queryKey: ['elections']});
+                            },
+                            onError: (error) => {
+                                toast.error(`Failed to toggle election status: ${error.message}`);
+                            }
+                        })}
                         isToggling={toggleElectionMutation.isPending}
                     />
                 ))}
@@ -110,7 +82,16 @@ export default function ElectionsPage() {
             {showCreateModal && (
                 <CreateElectionModal 
                     onClose={() => setShowCreateModal(false)}
-                    onSubmit={(data) => createElectionMutation.mutate(data)}
+                    onSubmit={(data) => createElectionMutation.mutate(data, {
+                        onSuccess: () => {
+                            toast.success('Election created successfully');
+                            queryClient.invalidateQueries({ queryKey: ['elections'] });
+                            setShowCreateModal(false);
+                        },
+                        onError: (error) => {
+                            toast.error(`Failed to create election: ${error.message}`);
+                        }
+                    })}
                     isLoading={createElectionMutation.isPending}
                 />
             )}

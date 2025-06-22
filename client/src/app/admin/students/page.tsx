@@ -8,6 +8,7 @@ import StudentRow from './components/StudentRow';
 import ImportStudentsModal from './components/ImportStudentsModal';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, } from '@/components/ui/table';
+import { useSearchParams } from 'next/navigation';
 
 export default function StudentsPage() {
     const [search, setSearch] = useState('');
@@ -17,7 +18,9 @@ export default function StudentsPage() {
         page: 1,
         page_size: 20
     });
-    const [showImportModal, setShowImportModal] = useState(false);
+
+    const searchParams = useSearchParams()
+    const [showImportModal, setShowImportModal] = useState(Boolean(searchParams.get('import')) || false);
 
     const { data: studentsData, isLoading } = useAllStudents({
         search: search || undefined,
