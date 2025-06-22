@@ -11,6 +11,7 @@ export interface PaginatedStackResponse <T> {
     previous: string
     message: string
     data: T
+    results?: T
     status: number
     error: { message?: string, detail?: any } | null
 }

@@ -13,6 +13,7 @@ export interface TimestampedEntity {
 // Student related types
 export type StudentLevel = 100 | 200 | 300 | 400 | 500;
 export type StudentStatus = 'active' | 'graduated' | 'inactive';
+export type Gender = 'male' | 'female' | 'other';
 
 export interface Student extends BaseEntity, TimestampedEntity {
     matric_number: string;
@@ -22,8 +23,10 @@ export interface Student extends BaseEntity, TimestampedEntity {
     email?: string;
     phone_number?: string;
     picture?: string;
+    gender: Gender;
     status: StudentStatus;
     is_active: boolean;
+    is_staff: boolean;
     date_joined: string;
 }
 
@@ -42,6 +45,7 @@ export interface Position extends BaseEntity {
     has_voted?: boolean;
     candidate_count?: number;
     election?: string; // Election ID
+    gender_restriction: 'any' | 'male' | 'female';
 }
 
 // Candidate related types
@@ -52,6 +56,7 @@ export interface CandidateStudent {
 
 export interface Candidate extends BaseEntity {
     student: CandidateStudent;
+    position: string;
     bio?: string;
     photo?: string;
 }
@@ -158,3 +163,111 @@ export interface CandidateFormData {
     bio?: string;
     photo?: File;
 }
+
+// Admin specific types
+export interface AdminDashboardData {
+    overview: {
+        total_students: number;
+        active_students: number;
+        total_elections: number;
+        active_elections: number;
+        total_votes: number;
+    };
+    recent_activity: {
+        new_votes: number;
+        new_students: number;
+        new_candidates: number;
+    };
+    current_election: {
+        name: string;
+        start_date: string;
+        end_date: string;
+        positions_count: number;
+        total_votes: number;
+        eligible_voters: number;
+        participation_rate: number;
+    } | null;
+}
+
+export interface StudentAnalytics {
+    totals: {
+        total_students: number;
+        active_students: number;
+        eligible_candidates: number;
+    };
+    distributions: {
+        by_level: { level: number; count: number }[];
+        by_gender: { gender: string; count: number }[];
+        by_status: { status: string; count: number }[];
+    };
+}
+
+export interface PositionAnalytics {
+    position_name: string;
+    total_votes: number;
+    eligible_voters: number;
+    participation_rate: number;
+    vote_breakdown: {
+        student_voted_for__full_name: string;
+        student_voted_for__gender: string;
+        vote_count: number;
+    }[];
+    vote_timeline: { hour: number; count: number }[];
+    voter_demographics: { voter__gender: string; count: number }[];
+}
+
+export interface VotingLog {
+    id: string;
+    voter_name: string;
+    voter_matric: string;
+    candidate_name: string;
+    candidate_matric: string;
+    position: string;
+    election: string;
+    voted_at: string;
+}
+
+export interface CandidateStatistics {
+    total_candidates: number;
+    complete_profiles: number;
+    completion_rate: number;
+    distribution: {
+        by_election: { position__election__name: string; count: number }[];
+        by_position: { position__name: string; count: number }[];
+        by_gender: { student__gender: string; count: number }[];
+    };
+}
+
+export interface ModerationCandidate {
+    id: string;
+    student_name: string;
+    student_matric: string;
+    position: string;
+    election: string;
+    missing_bio: boolean;
+    missing_photo: boolean;
+    created_at: string;
+}
+
+// Bulk import types
+export interface BulkImportResult {
+    created_count: number;
+    errors: string[];
+}
+
+export interface BulkPositionCreateData {
+    election_id: string;
+    positions: {
+        name: string;
+        gender_restriction?: 'any' | 'male' | 'female';
+    }[];
+}
+
+// Admin API response types
+export type AdminDashboardResponse = ApiResponse<AdminDashboardData>;
+export type StudentAnalyticsResponse = ApiResponse<StudentAnalytics>;
+export type PositionAnalyticsResponse = ApiResponse<PositionAnalytics>;
+export type VotingLogsResponse = ApiResponse<VotingLog[]>;
+export type CandidateStatisticsResponse = ApiResponse<CandidateStatistics>;
+export type ModerationQueueResponse = ApiResponse<ModerationCandidate[]>;
+export type BulkImportResponse = ApiResponse<BulkImportResult>;
