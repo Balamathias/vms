@@ -10,6 +10,9 @@ import { format } from 'date-fns';
 import { useForm } from 'react-hook-form';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { toast } from 'sonner';
+import { getCookie } from 'cookies-next/client'
+import { API_URL } from '@/services/utils';
+import axios from 'axios';
 
 interface ElectionFormData {
     name: string;
@@ -51,21 +54,22 @@ export default function ElectionsPage() {
 
     const toggleElectionMutation = useMutation({
         mutationFn: async (electionId: string) => {
-            const response = await fetch(`/api/v1/elections/${electionId}/toggle_status/`, {
-                method: 'PATCH',
+            const token = getCookie('token') as string;
+            const response = await axios.patch(`${API_URL}/elections/${electionId}/toggle_status/`, null, {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    'Authorization': `Bearer ${token}`
                 }
             });
-            if (!response.ok) throw new Error('Failed to toggle election');
-            return response.json();
+            return response.data;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['elections'] });
             toast.success('Election status updated');
         },
-        onError: () => {
-            toast.error('Failed to update election status');
+        onError: (e) => {
+            toast.error('Failed to update election status', {
+                description: String(e.message)
+            });
         }
     });
 

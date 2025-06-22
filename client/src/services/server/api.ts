@@ -15,7 +15,8 @@ import {
     ModerationCandidate,
     BulkImportResult,
     BulkPositionCreateData,
-    Student
+    Student,
+    Election
 } from "@/@types/db";
 
 
@@ -384,6 +385,75 @@ export const getAllStudents = async (params?: {
             count: 0,
             next: '',
             previous: '',
+        };
+    }
+}
+
+// Add these election management functions
+export const createElection = async (data: {
+    name: string;
+    start_date: string;
+    end_date: string;
+}): Promise<StackResponse<Election | null>> => {
+    try {
+        const { data: response } = await stackbase.post("/elections/", data);
+        return response;
+    } catch (error: any) {
+        console.error("Error creating election:", error);
+        return {
+            message: error?.response?.error?.detail || "An error occurred while creating the election.",
+            error: error?.response?.data,
+            status: error?.response?.status || 500,
+            data: null,
+        };
+    }
+}
+
+export const toggleElectionStatus = async (electionId: string): Promise<StackResponse<any>> => {
+    try {
+        const { data } = await stackbase.patch(`/elections/${electionId}/toggle_status/`);
+        return data;
+    } catch (error: any) {
+        console.error("Error toggling election status:", error);
+        return {
+            message: error?.response?.error?.detail || "An error occurred while toggling election status.",
+            error: error?.response?.data,
+            status: error?.response?.status || 500,
+            data: null,
+        };
+    }
+}
+
+export const updateElection = async (electionId: string, data: {
+    name?: string;
+    start_date?: string;
+    end_date?: string;
+}): Promise<StackResponse<Election | null>> => {
+    try {
+        const { data: response } = await stackbase.patch(`/elections/${electionId}/`, data);
+        return response;
+    } catch (error: any) {
+        console.error("Error updating election:", error);
+        return {
+            message: error?.response?.error?.detail || "An error occurred while updating the election.",
+            error: error?.response?.data,
+            status: error?.response?.status || 500,
+            data: null,
+        };
+    }
+}
+
+export const deleteElection = async (electionId: string): Promise<StackResponse<any>> => {
+    try {
+        const { data } = await stackbase.delete(`/elections/${electionId}/`);
+        return data;
+    } catch (error: any) {
+        console.error("Error deleting election:", error);
+        return {
+            message: error?.response?.error?.detail || "An error occurred while deleting the election.",
+            error: error?.response?.data,
+            status: error?.response?.status || 500,
+            data: null,
         };
     }
 }

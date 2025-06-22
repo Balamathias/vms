@@ -30,7 +30,11 @@ import {
     resetStudentPassword,
     toggleStudentStatus,
     bulkCreatePositions,
-    getAllStudents
+    getAllStudents,
+    createElection,
+    toggleElectionStatus,
+    updateElection,
+    deleteElection
 } from "../server/api";
 
 export const QUERY_KEYS = {
@@ -168,6 +172,56 @@ export const useBulkCreatePositions = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.get_positions] });
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.get_active_election] });
+        }
+    });
+}
+
+// Election management mutations
+export const useCreateElection = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (data: { name: string; start_date: string; end_date: string }) => 
+            createElection(data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['elections'] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.admin_dashboard] });
+        }
+    });
+}
+
+export const useToggleElectionStatus = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (electionId: string) => toggleElectionStatus(electionId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['elections'] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.get_active_election] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.admin_dashboard] });
+        }
+    });
+}
+
+export const useUpdateElection = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ electionId, data }: { 
+            electionId: string; 
+            data: { name?: string; start_date?: string; end_date?: string } 
+        }) => updateElection(electionId, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['elections'] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.get_active_election] });
+        }
+    });
+}
+
+export const useDeleteElection = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (electionId: string) => deleteElection(electionId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['elections'] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.admin_dashboard] });
         }
     });
 }

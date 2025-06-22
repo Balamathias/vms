@@ -28,4 +28,9 @@ urlpatterns = [
     
     # API endpoints
     path('', include(router.urls)),
+    
+    # Election management actions (if not handled by viewset)
+    path('elections/<uuid:pk>/toggle_status/', 
+         ElectionViewSet.as_view({'patch': 'toggle_status'}), 
+         name='election_toggle_status'),
 ]

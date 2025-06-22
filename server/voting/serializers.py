@@ -72,7 +72,7 @@ class PositionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Position
-        fields = ['id', 'name', 'candidate_count', 'election_name', 'candidates', 'has_voted', 'gender_restriction']
+        fields = ['id', 'name', 'candidate_count', 'election_name', 'candidates', 'has_voted', 'gender_restriction', 'election']
 
     def get_candidate_count(self, position):
         return position.get_eligible_candidates().count()
@@ -99,7 +99,7 @@ class ActiveElectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Election
-        fields = ['id', 'name', 'start_date', 'end_date', 'positions']
+        fields = ['id', 'name', 'start_date', 'end_date', 'positions', 'is_active']
 
 
 class CandidateStudentSerializer(serializers.ModelSerializer):

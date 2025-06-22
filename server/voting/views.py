@@ -283,10 +283,100 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
             return self.response(error={"detail": "Analytics retrieval failed."}, status_code=500)
         
 
-class ElectionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
+class ElectionViewSet(viewsets.ModelViewSet, ResponseMixin):  # Changed from ReadOnlyModelViewSet
     queryset = Election.objects.all().order_by('-start_date')
     serializer_class = ActiveElectionSerializer
     permission_classes = [AllowAny]
+
+    def get_permissions(self):
+        """
+        Override permissions for different actions
+        """
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'toggle_status']:
+            permission_classes = [IsAdminUser]
+        else:
+            permission_classes = [AllowAny]
+        return [permission() for permission in permission_classes]
+
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new election (Admin only)
+        """
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            return self.response(
+                data=serializer.data,
+                message="Election created successfully.",
+                status_code=201
+            )
+        except Exception as e:
+            logger.error(f"Election creation failed: {str(e)}")
+            return self.response(error={"detail": "Election creation failed."}, status_code=500)
+
+    def update(self, request, *args, **kwargs):
+        """
+        Update an election (Admin only)
+        """
+        try:
+            partial = kwargs.pop('partial', False)
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            return self.response(
+                data=serializer.data,
+                message="Election updated successfully."
+            )
+        except Exception as e:
+            logger.error(f"Election update failed: {str(e)}")
+            return self.response(error={"detail": "Election update failed."}, status_code=500)
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete an election (Admin only)
+        """
+        try:
+            instance = self.get_object()
+            # Check if election has votes before deleting
+            if Vote.objects.filter(position__election=instance).exists():
+                return self.response(
+                    error={"detail": "Cannot delete election with existing votes."},
+                    status_code=400
+                )
+            self.perform_destroy(instance)
+            return self.response(
+                message="Election deleted successfully.",
+                status_code=204
+            )
+        except Exception as e:
+            logger.error(f"Election deletion failed: {str(e)}")
+            return self.response(error={"detail": "Election deletion failed."}, status_code=500)
+
+    @action(detail=True, methods=['patch'], permission_classes=[IsAdminUser])
+    def toggle_status(self, request, pk=None):
+        """
+        Toggle election active/inactive status (Admin only)
+        """
+        try:
+            election = self.get_object()
+            
+            # If activating, deactivate all other elections first
+            if not election.is_active:
+                Election.objects.filter(is_active=True).update(is_active=False)
+            
+            election.is_active = not election.is_active
+            election.save()
+            
+            return self.response(
+                data={'is_active': election.is_active},
+                message=f"Election {'activated' if election.is_active else 'deactivated'} successfully.",
+                status_code=200
+            )
+        except Exception as e:
+            logger.error(f"Election status toggle failed: {str(e)}")
+            return self.response(error={"detail": "Status toggle failed."}, status_code=500)
 
     def list(self, request, *args, **kwargs):
         """
@@ -522,7 +612,7 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
             
             # Voting timeline (votes per hour during election)
             vote_timeline = Vote.objects.filter(position=position) \
-                .extra(select={'hour': 'EXTRACT(hour FROM voted_at)'}) \
+                .extra(select={'hour': "strftime('%%H', voted_at)"}) \
                 .values('hour') \
                 .annotate(count=Count('id')) \
                 .order_by('hour')
@@ -533,7 +623,15 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
                 .annotate(count=Count('id'))
             
             total_votes = Vote.objects.filter(position=position).count()
-            eligible_voters = position.get_eligible_candidates().count()
+            eligible_voters = Student.objects.filter(level=500, status='active').count()
+            
+            # If no gender restriction, use all 500L active students
+            if position.gender_restriction != 'any':
+                eligible_voters = Student.objects.filter(
+                    level=500, 
+                    status='active', 
+                    gender=position.gender_restriction
+                ).count()
             
             return self.response(
                 data={
@@ -551,6 +649,7 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
         except Exception as e:
             logger.error(f"Position analytics failed: {str(e)}")
             return self.response(error={"detail": "Analytics retrieval failed."}, status_code=500)
+        
 
 class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixin):
     queryset = Vote.objects.all()
@@ -678,6 +777,7 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
         except Exception as e:
             logger.error(f"Vote export failed: {str(e)}")
             return self.response(error={"detail": "Vote export failed."}, status_code=500)
+        
 
 class CandidateViewSet(viewsets.ModelViewSet, ResponseMixin):
     queryset = Candidate.objects.select_related('student', 'position')
@@ -895,3 +995,4 @@ class AdminDashboardView(APIView, ResponseMixin):
         except Exception as e:
             logger.error(f"Admin dashboard failed: {str(e)}")
             return self.response(error={"detail": "Dashboard data retrieval failed."}, status_code=500)
+        
