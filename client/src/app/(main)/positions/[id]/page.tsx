@@ -96,14 +96,9 @@ const PositionDetailPage = () => {
               <span>Back to Positions</span>
             </button>
             
-            <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+            <h1 className="text-xl sm:text-3xl font-bold text-white flex items-center gap-3">
               <Award className="h-6 w-6 text-amber-300" />
-                {position?.name}
-                {position?.gender_restriction && (
-                <span className="ml-2 px-2 py-1 text-xs bg-blue-500/20 border border-blue-500/30 rounded-md text-blue-300">
-                  {position.gender_restriction}
-                </span>
-                )}
+                {position?.name}{position?.gender_restriction === 'any' ? '' : (' | ' + position?.gender_restriction?.charAt(0).toUpperCase() + position?.gender_restriction?.slice(1))}
             </h1>
             <p className="text-white/70 mt-1">{position?.election_name}</p>
           </div>
