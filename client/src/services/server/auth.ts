@@ -12,7 +12,7 @@ import { StackResponse } from "@/@types/generics"
  */
 export async function getUser(): Promise<CurrentUserResponse> {
   try {
-    const { data } = await stackbase.get("/auth/user/")
+    const { data } = await stackbase.get("/auth/me/")
     return data
   } catch (error: any) {
     return {
