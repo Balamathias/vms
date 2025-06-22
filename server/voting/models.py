@@ -56,6 +56,8 @@ class Student(AbstractBaseUser, PermissionsMixin):
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     picture = models.ImageField(upload_to='students/', blank=True, null=True)
 
+    gender = models.CharField(max_length=10, choices=[('male', 'Male'), ('female', 'Female'), ('other', 'Other')], default='other')
+
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='active')
     date_joined = models.DateTimeField(default=timezone.now)
 
@@ -97,15 +99,34 @@ class Election(models.Model):
 
 
 class Position(models.Model):
+    GENDER_RESTRICTION_CHOICES = [
+        ('any', 'Any Gender'),
+        ('male', 'Male Only'),
+        ('female', 'Female Only'),
+    ]
+    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255, help_text="e.g., 'Best Dressed', 'Most Innovative'")
     election = models.ForeignKey(Election, related_name='positions', on_delete=models.CASCADE)
+    gender_restriction = models.CharField(
+        max_length=10, 
+        choices=GENDER_RESTRICTION_CHOICES, 
+        default='any',
+        help_text="Restrict this position to specific gender"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.name} ({self.election.name})"
+
+    def get_eligible_candidates(self):
+        """Get students eligible for this position based on level, status, and gender"""
+        queryset = Student.objects.filter(level=500, status='active')
+        if self.gender_restriction != 'any':
+            queryset = queryset.filter(gender=self.gender_restriction)
+        return queryset
 
 
 class Candidate(models.Model):

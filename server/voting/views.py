@@ -95,8 +95,15 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
     def qualified_candidates(self, request):
         """
         Returns a list of all students who are eligible to run for positions.
+        Optionally filter by gender for specific position.
         """
         queryset = self.queryset.filter(level=500, status='active')
+        
+        # Optional gender filter
+        gender = request.query_params.get('gender')
+        if gender and gender in ['male', 'female']:
+            queryset = queryset.filter(gender=gender)
+            
         serializer = self.get_serializer(queryset, many=True)
         return self.response(data=serializer.data, message="List of all qualified candidates.")
 
@@ -270,6 +277,17 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
     serializer_class = VoteSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_serializer(self, *args, **kwargs):
+        serializer = super().get_serializer(*args, **kwargs)
+        # Update queryset for student_voted_for based on position
+        if hasattr(serializer, 'initial_data') and 'position' in serializer.initial_data:
+            try:
+                position = Position.objects.get(id=serializer.initial_data['position'])
+                serializer.fields['student_voted_for'].queryset = position.get_eligible_candidates()
+            except Position.DoesNotExist:
+                pass
+        return serializer
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         try:
@@ -298,7 +316,7 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
     @action(detail=True, methods=['get'], url_path='candidates')
     def candidates(self, request, pk=None):
         position = self.get_object()
-        students = Student.objects.filter(level=500, status='active')
+        students = position.get_eligible_candidates()
         context = self.get_serializer_context()
         context['position'] = position
         serializer = DynamicCandidateSerializer(students, many=True, context=context)
@@ -308,7 +326,7 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         data = serializer.data
-        data['candidate_count'] = Student.objects.filter(level=500, status='active').count()
+        data['candidate_count'] = instance.get_eligible_candidates().count()
         return self.response(data=data, message="Position details retrieved successfully.")
 
 
@@ -327,6 +345,20 @@ class CandidateViewSet(viewsets.ModelViewSet, ResponseMixin):
         position_id = request.data.get("position")
         if not position_id:
             return self.response(error={"detail": "Position is required."}, status_code=400)
+
+        try:
+            position = Position.objects.get(id=position_id)
+            # Check if student is eligible for this position
+            if student not in position.get_eligible_candidates():
+                gender_msg = ""
+                if position.gender_restriction != 'any':
+                    gender_msg = f" This position is restricted to {position.gender_restriction} candidates only."
+                return self.response(
+                    error={"detail": f"You are not eligible for this position.{gender_msg}"}, 
+                    status_code=400
+                )
+        except Position.DoesNotExist:
+            return self.response(error={"detail": "Position not found."}, status_code=404)
 
         if Candidate.objects.filter(student=student, position_id=position_id).exists():
             return self.response(error={"detail": "Enhancement already exists for this position."}, status_code=400)
@@ -352,5 +384,11 @@ class CandidateViewSet(viewsets.ModelViewSet, ResponseMixin):
     @action(detail=False, methods=['get'], url_path='qualified')
     def qualified_candidates(self, request):
         queryset = self.queryset.filter(student__level=500, student__status='active')
+        
+        # Optional gender filter
+        gender = request.query_params.get('gender')
+        if gender and gender in ['male', 'female']:
+            queryset = queryset.filter(student__gender=gender)
+            
         serializer = self.get_serializer(queryset, many=True)
         return self.response(data=serializer.data, message="List of all qualified candidates.")

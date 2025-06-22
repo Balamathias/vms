@@ -6,15 +6,15 @@ from .models import Student, Election, Position, Candidate, Vote
 
 @admin.register(Student)
 class StudentAdmin(UserAdmin):
-    list_display = ('matric_number', 'full_name', 'level', 'status', 'state_of_origin', 'email', 'is_active', 'is_candidate_indicator', 'picture_preview')
-    list_filter = ('level', 'status', 'state_of_origin', 'is_active', 'date_joined')
+    list_display = ('matric_number', 'full_name', 'level', 'gender', 'status', 'state_of_origin', 'email', 'is_active', 'is_candidate_indicator', 'picture_preview')
+    list_filter = ('level', 'gender', 'status', 'state_of_origin', 'is_active', 'date_joined')
     search_fields = ('matric_number', 'full_name', 'email', 'phone_number')
     ordering = ('matric_number',)
     list_per_page = 50
     
     fieldsets = (
         (None, {'fields': ('matric_number', 'password')}),
-        ('Personal info', {'fields': ('full_name', 'email', 'phone_number', 'picture', 'picture_preview')}),
+        ('Personal info', {'fields': ('full_name', 'gender', 'email', 'phone_number', 'picture', 'picture_preview')}),
         ('Academic info', {'fields': ('level', 'state_of_origin', 'status')}),
         ('Permissions', {
             'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
@@ -25,7 +25,7 @@ class StudentAdmin(UserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('matric_number', 'full_name', 'level', 'state_of_origin', 'password1', 'password2'),
+            'fields': ('matric_number', 'full_name', 'gender', 'level', 'state_of_origin', 'password1', 'password2'),
         }),
     )
     
@@ -75,11 +75,16 @@ class ElectionAdmin(admin.ModelAdmin):
 
 @admin.register(Position)
 class PositionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'election', 'enhancements_count', 'votes_count', 'eligible_candidates_count')
-    list_filter = ('election', 'election__is_active')
+    list_display = ('name', 'election', 'gender_restriction', 'enhancements_count', 'votes_count', 'eligible_candidates_count')
+    list_filter = ('election', 'election__is_active', 'gender_restriction')
     search_fields = ('name', 'election__name')
     ordering = ('election__start_date', 'name')
     readonly_fields = ('id',)
+    
+    fieldsets = (
+        (None, {'fields': ('name', 'election')}),
+        ('Restrictions', {'fields': ('gender_restriction',)}),
+    )
     
     def enhancements_count(self, obj):
         return obj.candidates.count()
@@ -89,7 +94,7 @@ class PositionAdmin(admin.ModelAdmin):
     votes_count.short_description = 'Votes'
     
     def eligible_candidates_count(self, obj):
-        return Student.objects.filter(level=500, status='active').count()
+        return obj.get_eligible_candidates().count()
     eligible_candidates_count.short_description = 'Eligible Students'
     
     def get_queryset(self, request):

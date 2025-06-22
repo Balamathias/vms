@@ -71,19 +71,16 @@ class PositionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Position
-        fields = ['id', 'name', 'candidate_count', 'election_name', 'candidates', 'has_voted']
+        fields = ['id', 'name', 'candidate_count', 'election_name', 'candidates', 'has_voted', 'gender_restriction']
 
     def get_candidate_count(self, position):
-        return Student.objects.filter(
-            level=500, 
-            status='active', 
-        ).count()
+        return position.get_eligible_candidates().count()
 
     def get_candidates(self, position):
         # Only return candidates when fetching position detail (single instance)
         if self.context.get('view') and hasattr(self.context['view'], 'action'):
             if self.context['view'].action == 'retrieve':
-                students = Student.objects.filter(level=500, status='active')
+                students = position.get_eligible_candidates()
                 context = self.context.copy()
                 context['position'] = position
                 return DynamicCandidateSerializer(students, many=True, context=context).data
@@ -129,13 +126,21 @@ class CandidateSerializer(serializers.ModelSerializer):
 
 class VoteSerializer(serializers.ModelSerializer):
     voter = serializers.PrimaryKeyRelatedField(read_only=True)
-    student_voted_for = serializers.PrimaryKeyRelatedField(
-        queryset=Student.objects.filter(level=500, status='active')
-    )
+    student_voted_for = serializers.PrimaryKeyRelatedField(queryset=Student.objects.none())
 
     class Meta:
         model = Vote
         fields = ['id', 'voter', 'position', 'student_voted_for']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set queryset dynamically based on position if available
+        if 'data' in kwargs and 'position' in kwargs['data']:
+            try:
+                position = Position.objects.get(id=kwargs['data']['position'])
+                self.fields['student_voted_for'].queryset = position.get_eligible_candidates()
+            except Position.DoesNotExist:
+                pass
 
     def validate(self, data):
         position = data.get('position')
@@ -144,7 +149,12 @@ class VoteSerializer(serializers.ModelSerializer):
         if not position.election.is_active or not (position.election.start_date <= timezone.now() <= position.election.end_date):
             raise serializers.ValidationError("This election is not currently active.")
 
-        if not (candidate.level == 500 and candidate.status == 'active'):
-            raise serializers.ValidationError(f"{candidate.full_name} is not eligible to be voted for.")
+        # Check if candidate is eligible for this position (level, status, and gender)
+        eligible_candidates = position.get_eligible_candidates()
+        if candidate not in eligible_candidates:
+            gender_msg = ""
+            if position.gender_restriction != 'any':
+                gender_msg = f" This position is restricted to {position.gender_restriction} candidates only."
+            raise serializers.ValidationError(f"{candidate.full_name} is not eligible for this position.{gender_msg}")
 
         return data
