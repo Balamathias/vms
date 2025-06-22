@@ -103,7 +103,7 @@ const Navbar = ({ user }: NavbarProps) => {
                     {getInitials(user.full_name)}
                   </div>
                   <button className="flex flex-col text-left"
-                    onClick={user?.is_staff ? () => router.push('/profile') : undefined}
+                    onClick={user?.is_staff ? () => router.push('/admin') : undefined}
                     disabled={!user?.is_staff}
                   >
                     <p className="text-white text-sm font-medium">{user.full_name}</p>
@@ -164,7 +164,7 @@ const Navbar = ({ user }: NavbarProps) => {
                       {getInitials(user.full_name)}
                     </div>
                     <button className="flex flex-col text-left"
-                      onClick={user?.is_staff ? () => router.push('/profile') : undefined}
+                      onClick={user?.is_staff ? () => router.push('/admin') : undefined}
                       disabled={!user?.is_staff}
                     >
                       <p className="text-white font-medium">{user.full_name}</p>
