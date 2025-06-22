@@ -102,10 +102,13 @@ const Navbar = ({ user }: NavbarProps) => {
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 via-blue-400 to-teal-400 flex items-center justify-center text-white font-semibold text-sm">
                     {getInitials(user.full_name)}
                   </div>
-                  <div className="text-left">
+                  <button className="flex flex-col text-left"
+                    onClick={user?.is_staff ? () => router.push('/profile') : undefined}
+                    disabled={!user?.is_staff}
+                  >
                     <p className="text-white text-sm font-medium">{user.full_name}</p>
                     <p className="text-white/60 text-xs">{user.matric_number}</p>
-                  </div>
+                  </button>
                 </motion.div>
                 
                 {/* Logout Button */}
@@ -160,10 +163,13 @@ const Navbar = ({ user }: NavbarProps) => {
                     <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-400 via-blue-400 to-teal-400 flex items-center justify-center text-white font-semibold">
                       {getInitials(user.full_name)}
                     </div>
-                    <div>
+                    <button className="flex flex-col text-left"
+                      onClick={user?.is_staff ? () => router.push('/profile') : undefined}
+                      disabled={!user?.is_staff}
+                    >
                       <p className="text-white font-medium">{user.full_name}</p>
                       <p className="text-white/60 text-sm">{user.matric_number}</p>
-                    </div>
+                    </button>
                   </div>
                   <motion.button
                     onClick={handleLogout}
