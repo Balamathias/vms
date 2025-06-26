@@ -12,9 +12,6 @@ const Page = async () => {
   const user = userResponse?.data
   const winners = winnersResponse?.data || []
   
-  console.log("User data:", user)
-  console.log("Winners data:", winners)
-  
   return (
     <div>
       <Home user={user} winners={winners} />

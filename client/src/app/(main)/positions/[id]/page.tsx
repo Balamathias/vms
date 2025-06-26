@@ -37,7 +37,6 @@ const PositionDetailPage = () => {
     
     vote({position: params?.id as any, student_voted_for: selectedCandidate}, {
       onSuccess: (data) => {
-        console.log(data)
         if (data?.error) {
           console.error("Vote submission failed:", data.error.detail)
           toast.error(data?.error?.detail)
