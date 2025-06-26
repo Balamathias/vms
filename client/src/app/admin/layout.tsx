@@ -17,10 +17,8 @@ export default async function AdminLayout({
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-indigo-950">
             <div className="flex h-screen overflow-hidden">
-                {/* Sidebar */}
                 <AdminSidebar />
                 
-                {/* Main content area */}
                 <div className="flex-1 flex flex-col overflow-hidden">
                     <AdminHeader user={user} />
                     <main className="flex-1 overflow-y-auto p-4 md:p-6">

@@ -1,6 +1,12 @@
+import { getUser } from '@/services/server/auth'
+import { redirect } from 'next/navigation'
 import React, { PropsWithChildren } from 'react'
 
-const Layout = ({ children }: PropsWithChildren) => {
+const Layout = async ({ children }: PropsWithChildren) => {
+  const { data: user } = await getUser()
+
+  if (user) return redirect('/')
+    
   return (
     <div className="min-h-screen relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-gray-950 via-black to-indigo-950 z-0"></div>
