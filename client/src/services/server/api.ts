@@ -457,3 +457,22 @@ export const deleteElection = async (electionId: string): Promise<StackResponse<
         };
     }
 }
+
+export const globalSearch = async (query: string): Promise<StackResponse<{
+    students: Student[];
+    elections: Election[];
+    positions: Position[];
+} | null>> => {
+    try {
+        const { data } = await stackbase.get(`/search/?q=${encodeURIComponent(query)}`);
+        return data;
+    } catch (error: any) {
+        console.error("Error performing global search:", error);
+        return {
+            message: error?.response?.error?.detail || "An error occurred while searching.",
+            error: error?.response?.data,
+            status: error?.response?.status || 500,
+            data: null,
+        };
+    }
+}

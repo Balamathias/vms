@@ -34,7 +34,8 @@ import {
     createElection,
     toggleElectionStatus,
     updateElection,
-    deleteElection
+    deleteElection,
+    globalSearch,
 } from "../server/api";
 
 export const QUERY_KEYS = {
@@ -49,6 +50,7 @@ export const QUERY_KEYS = {
     candidate_statistics: 'candidate_statistics',
     moderation_queue: 'moderation_queue',
     all_students: 'all_students',
+    global_search: 'global_search',
 }
 
 export const usePositions = () => useQuery({
@@ -225,3 +227,9 @@ export const useDeleteElection = () => {
         }
     });
 }
+
+export const useGlobalSearch = (query: string) => useQuery({
+    queryKey: [QUERY_KEYS.global_search, query],
+    queryFn: async () => globalSearch(query),
+    enabled: !!query,
+});

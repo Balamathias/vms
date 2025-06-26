@@ -273,3 +273,12 @@ export type VotingLogsResponse = ApiResponse<VotingLog[]>;
 export type CandidateStatisticsResponse = ApiResponse<CandidateStatistics>;
 export type ModerationQueueResponse = ApiResponse<ModerationCandidate[]>;
 export type BulkImportResponse = ApiResponse<BulkImportResult>;
+
+// Global search types
+export interface GlobalSearchResults {
+    students: Student[];
+    elections: Election[];
+    positions: Position[];
+}
+
+export type GlobalSearchResponse = ApiResponse<GlobalSearchResults>;
