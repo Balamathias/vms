@@ -64,6 +64,9 @@ class Student(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
 
+    is_verified = models.BooleanField(default=False, help_text="Indicates if the student has verified their account")
+    is_nominated = models.BooleanField(default=False, help_text="Indicates if the student has been nominated for a position")
+
     objects = StudentManager()
 
     USERNAME_FIELD = 'matric_number'
@@ -79,7 +82,7 @@ class Student(AbstractBaseUser, PermissionsMixin):
 
     @property
     def is_candidate(self):
-        return self.level == 500 and self.status == 'active'
+        return self.is_nominated and self.status == 'active'
 
 
 class Election(models.Model):
@@ -104,6 +107,11 @@ class Position(models.Model):
         ('male', 'Male Only'),
         ('female', 'Female Only'),
     ]
+
+    POSITION_CHOICES = [
+        ('junior', 'Junior Award'),
+        ('senior', 'Senior Award'),
+    ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255, help_text="e.g., 'Best Dressed', 'Most Innovative'")
@@ -114,6 +122,12 @@ class Position(models.Model):
         default='any',
         help_text="Restrict this position to specific gender"
     )
+    position_type = models.CharField(
+        max_length=10,
+        choices=POSITION_CHOICES,
+        default='senior',
+        help_text="The type of position"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -123,9 +137,11 @@ class Position(models.Model):
 
     def get_eligible_candidates(self):
         """Get students eligible for this position based on level, status, and gender"""
-        queryset = Student.objects.filter(level=500, status='active')
+        queryset = Student.objects.filter(is_nominated=True, status='active')
         if self.gender_restriction != 'any':
             queryset = queryset.filter(gender=self.gender_restriction)
+        if self.position_type == 'junior':
+            queryset = queryset.filter(level__in=[100, 200, 300, 400])
         return queryset
 
 
@@ -169,4 +185,4 @@ class Vote(models.Model):
 
     def clean(self):
         if not self.student_voted_for.is_candidate:
-            raise ValidationError("You can only vote for active 500L students.")
+            raise ValidationError("You can only vote for active and Qualified students.")

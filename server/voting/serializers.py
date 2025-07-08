@@ -25,9 +25,9 @@ class StudentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'matric_number', 'full_name', 'level', 'state_of_origin', 
             'email', 'phone_number', 'picture', 'status', 'is_active', 'date_joined',
-            'is_staff', 'is_superuser'
+            'is_staff', 'is_superuser', 'is_verified', 'is_nominated'
         ]
-        read_only_fields = ['is_active', 'date_joined', 'is_staff', 'is_superuser']
+        read_only_fields = ['is_active', 'date_joined', 'is_staff', 'is_superuser', 'is_verified', 'is_nominated']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -73,7 +73,7 @@ class PositionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Position
-        fields = ['id', 'name', 'candidate_count', 'vote_count', 'election_name', 'candidates', 'has_voted', 'gender_restriction', 'election']
+        fields = ['id', 'name', 'candidate_count', 'vote_count', 'election_name', 'candidates', 'has_voted', 'gender_restriction', 'election', 'position_type']
 
     def get_candidate_count(self, position):
         return position.get_eligible_candidates().count()

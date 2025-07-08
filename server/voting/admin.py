@@ -15,7 +15,7 @@ class StudentAdmin(UserAdmin):
     fieldsets = (
         (None, {'fields': ('matric_number', 'password')}),
         ('Personal info', {'fields': ('full_name', 'gender', 'email', 'phone_number', 'picture', 'picture_preview')}),
-        ('Academic info', {'fields': ('level', 'state_of_origin', 'status')}),
+        ('Academic info', {'fields': ('level', 'state_of_origin', 'status', 'is_verified', 'is_nominated')}),
         ('Permissions', {
             'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
         }),
@@ -25,7 +25,7 @@ class StudentAdmin(UserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('matric_number', 'full_name', 'gender', 'level', 'state_of_origin', 'password1', 'password2'),
+            'fields': ('matric_number', 'full_name', 'gender', 'level', 'state_of_origin', 'password1', 'password2', 'is_verified', 'is_nominated'),
         }),
     )
     
@@ -75,15 +75,15 @@ class ElectionAdmin(admin.ModelAdmin):
 
 @admin.register(Position)
 class PositionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'election', 'gender_restriction', 'enhancements_count', 'votes_count', 'eligible_candidates_count')
-    list_filter = ('election', 'election__is_active', 'gender_restriction')
+    list_display = ('name', 'election', 'gender_restriction', 'enhancements_count', 'votes_count', 'eligible_candidates_count', 'position_type')
+    list_filter = ('election', 'election__is_active', 'gender_restriction', 'position_type')
     search_fields = ('name', 'election__name')
     ordering = ('election__start_date', 'name')
     readonly_fields = ('id',)
     
     fieldsets = (
         (None, {'fields': ('name', 'election')}),
-        ('Restrictions', {'fields': ('gender_restriction',)}),
+        ('Restrictions', {'fields': ('gender_restriction', 'position_type')}),
     )
     
     def enhancements_count(self, obj):
