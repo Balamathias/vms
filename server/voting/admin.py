@@ -1,7 +1,10 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
-from .models import Student, Election, Position, Candidate, Vote
+from django.db.models import Count
+from django.utils import timezone
+from datetime import timedelta
+from .models import Student, Election, Position, Candidate, Vote, IPRestriction, LoginAttempt, VoteAttempt
 
 
 @admin.register(Student)
@@ -189,6 +192,116 @@ class VoteAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         return False
 
+
+@admin.register(IPRestriction)
+class IPRestrictionAdmin(admin.ModelAdmin):
+    list_display = ('ip_address', 'is_blocked', 'max_accounts_per_ip', 'reason_preview', 'created_at')
+    list_filter = ('is_blocked', 'created_at')
+    search_fields = ('ip_address', 'reason')
+    actions = ['block_ips', 'unblock_ips']
+    readonly_fields = ('created_at', 'updated_at')
+    
+    def reason_preview(self, obj):
+        if obj.reason:
+            return obj.reason[:50] + '...' if len(obj.reason) > 50 else obj.reason
+        return '-'
+    reason_preview.short_description = 'Reason'
+    
+    def block_ips(self, request, queryset):
+        updated = queryset.update(is_blocked=True)
+        self.message_user(request, f"{updated} IP addresses blocked.")
+    block_ips.short_description = "Block selected IP addresses"
+    
+    def unblock_ips(self, request, queryset):
+        updated = queryset.update(is_blocked=False)
+        self.message_user(request, f"{updated} IP addresses unblocked.")
+    unblock_ips.short_description = "Unblock selected IP addresses"
+
+
+@admin.register(LoginAttempt)
+class LoginAttemptAdmin(admin.ModelAdmin):
+    list_display = ('ip_address', 'matric_number', 'success', 'timestamp', 'user_agent_preview')
+    list_filter = ('success', 'timestamp')
+    search_fields = ('ip_address', 'matric_number')
+    readonly_fields = ('ip_address', 'user_agent', 'matric_number', 'success', 'timestamp')
+    date_hierarchy = 'timestamp'
+    
+    def user_agent_preview(self, obj):
+        if obj.user_agent:
+            return obj.user_agent[:30] + '...' if len(obj.user_agent) > 30 else obj.user_agent
+        return '-'
+    user_agent_preview.short_description = 'User Agent'
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).order_by('-timestamp')
+    
+    def has_add_permission(self, request):
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(VoteAttempt)
+class VoteAttemptAdmin(admin.ModelAdmin):
+    list_display = ('voter_info', 'ip_address', 'position_info', 'success', 'timestamp', 'reason_preview')
+    list_filter = ('success', 'timestamp', 'position__election')
+    search_fields = ('voter__matric_number', 'ip_address', 'position__name')
+    readonly_fields = ('voter', 'ip_address', 'position', 'success', 'reason', 'timestamp', 'user_agent')
+    date_hierarchy = 'timestamp'
+    
+    def voter_info(self, obj):
+        if obj.voter:
+            return f"{obj.voter.full_name} ({obj.voter.matric_number})"
+        return "Anonymous"
+    voter_info.short_description = 'Voter'
+    
+    def position_info(self, obj):
+        return f"{obj.position.name} - {obj.position.election.name}"
+    position_info.short_description = 'Position & Election'
+    
+    def reason_preview(self, obj):
+        if obj.reason:
+            return obj.reason[:40] + '...' if len(obj.reason) > 40 else obj.reason
+        return '-'
+    reason_preview.short_description = 'Reason'
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'voter', 'position', 'position__election'
+        ).order_by('-timestamp')
+    
+    def has_add_permission(self, request):
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+# Security Dashboard View (Custom Admin View)
+class SecurityDashboard:
+    """Custom admin view for security monitoring."""
+    
+    @staticmethod
+    def get_security_stats():
+        now = timezone.now()
+        last_24h = now - timedelta(hours=24)
+        last_week = now - timedelta(days=7)
+        
+        return {
+            'failed_logins_24h': LoginAttempt.objects.filter(
+                success=False, timestamp__gte=last_24h
+            ).count(),
+            'blocked_ips': IPRestriction.objects.filter(is_blocked=True).count(),
+            'failed_votes_24h': VoteAttempt.objects.filter(
+                success=False, timestamp__gte=last_24h
+            ).count(),
+            'multiple_ip_users': Student.objects.filter(
+                last_login__gte=last_week
+            ).values('last_login_ip').annotate(
+                user_count=Count('id')
+            ).filter(user_count__gt=3).count(),
+        }
 
 admin.site.site_header = "Voting Management System"
 admin.site.site_title = "VMS Admin"

@@ -75,8 +75,8 @@ export const voteCandidate = async (voteData: VoteFormData): Promise<StackRespon
   } catch (error: any) {
     console.error("Error voting for candidate:", error);
     return {
-      message: error?.response?.error?.detail || "An error occurred while voting for the candidate.",
-      error: error?.response?.data?.error,
+      message: error?.response?.data?.message || "An error occurred while voting for the candidate.",
+      error: error?.response?.error?.detail || "An unexpected error occurred.",
       status: error?.response?.status || 500,
       data: null,
     };

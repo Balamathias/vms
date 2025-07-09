@@ -18,6 +18,7 @@ from django.http import HttpResponse
 from django.utils import timezone
 from django.db.models import Count, Q
 from django.contrib.auth.hashers import make_password
+from django.conf import settings
 from rest_framework import status, viewsets, mixins
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -27,15 +28,18 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
+from django.core.cache import cache
+from datetime import timedelta
+import logging
 
-from .models import Election, Vote, Candidate, Student, Position
+from .models import Election, Vote, Candidate, Student, Position, LoginAttempt, IPRestriction
 from .serializers import (
     TokenObtainPairSerializer, ActiveElectionSerializer, VoteSerializer,
     StudentSerializer, CandidateSerializer, PositionSerializer, DynamicCandidateSerializer
 )
 from utils.response import ResponseMixin
+from .middleware import SecurityMiddleware
 
-import logging
 logger = logging.getLogger(__name__)
 
 
@@ -44,16 +48,120 @@ class ObtainTokenPairView(TokenObtainPairView, ResponseMixin):
     serializer_class = TokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
+        ip_address = self.get_client_ip(request)
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+        matric_number = getattr(request.data, 'get', lambda x, default: default)('matric_number', '').upper()
+        
+        if self.detect_suspicious_activity(ip_address, matric_number):
+            return self.response(
+                data={}, 
+                message="Suspicious activity detected. Please try again later.", 
+                status_code=429
+            )
+        
+        if matric_number and self.is_account_locked(matric_number):
+            return self.response(
+                data={}, 
+                message="Account temporarily locked due to multiple failed attempts.", 
+                status_code=423
+            )
+        
         response = super().post(request, *args, **kwargs)
+        
+        LoginAttempt.objects.create(
+            ip_address=ip_address,
+            user_agent=user_agent,
+            matric_number=matric_number,
+            success=response.status_code == 200
+        )
+        
         if response.status_code == 200:
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            user = serializer.user
-            user.last_login = timezone.now()
-            user.save(update_fields=['last_login'])
-            logger.info(f"User {user.matric_number} logged in successfully.")
-            return self.response(data=response.data, message="Login successful.")
-        return self.response(data=response.data, message="Login failed.", status_code=response.status_code)
+            try:
+                user = Student.objects.get(matric_number=matric_number)
+                user.last_login_ip = ip_address
+                user.failed_login_attempts = 0
+                user.locked_until = None
+                user.save(update_fields=['last_login_ip', 'failed_login_attempts', 'locked_until'])
+                
+                self.check_multiple_accounts_per_ip(ip_address)
+                
+            except Student.DoesNotExist:
+                pass
+        else:
+            self.handle_failed_login(matric_number, ip_address)
+        
+        return self.response(
+            data=response.data, 
+            message="Login successful." if response.status_code == 200 else "Login failed.", 
+            status_code=response.status_code
+        )
+
+    def get_client_ip(self, request):
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+
+    def detect_suspicious_activity(self, ip_address, matric_number):
+        one_hour_ago = timezone.now() - timedelta(hours=1)
+        failed_attempts = LoginAttempt.objects.filter(
+            ip_address=ip_address,
+            success=False,
+            timestamp__gte=one_hour_ago
+        ).count()
+        
+        if failed_attempts >= 10:
+            return True
+            
+        if matric_number:
+            recent_attempts = LoginAttempt.objects.filter(
+                ip_address=ip_address,
+                timestamp__gte=one_hour_ago
+            ).values('matric_number').distinct().count()
+            
+            if recent_attempts >= 5:
+                return True
+                
+        return False
+
+    def is_account_locked(self, matric_number):
+        try:
+            user = Student.objects.get(matric_number=matric_number)
+            if user.locked_until and user.locked_until > timezone.now():
+                return True
+        except Student.DoesNotExist:
+            pass
+        return False
+
+    def handle_failed_login(self, matric_number, ip_address):
+        if matric_number:
+            try:
+                user = Student.objects.get(matric_number=matric_number)
+                user.failed_login_attempts += 1
+                
+                if user.failed_login_attempts >= 5:
+                    user.locked_until = timezone.now() + timedelta(hours=1)
+                    
+                user.save(update_fields=['failed_login_attempts', 'locked_until'])
+            except Student.DoesNotExist:
+                pass
+
+    def check_multiple_accounts_per_ip(self, ip_address):
+        yesterday = timezone.now() - timedelta(days=1)
+        unique_users = Student.objects.filter(
+            last_login_ip=ip_address,
+            last_login__gte=yesterday
+        ).count()
+        
+        if unique_users > 3:
+            ip_restriction, created = IPRestriction.objects.get_or_create(
+                ip_address=ip_address,
+                defaults={'reason': f'Multiple accounts ({unique_users}) detected from same IP'}
+            )
+            
+            logger.warning(f"Multiple accounts detected from IP {ip_address}: {unique_users} users")
 
 
 class RefreshTokenView(TokenRefreshView, ResponseMixin):
@@ -668,16 +776,113 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
         return serializer
 
     def create(self, request, *args, **kwargs):
+        ip_address = self.get_client_ip(request)
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+        
+        security_check = self.perform_security_checks(request.user, ip_address)
+        if security_check['blocked']:
+            return self.response(
+                data={}, 
+                message=security_check['reason'], 
+                status_code=403
+            )
+        
         serializer = self.get_serializer(data=request.data)
         try:
             serializer.is_valid(raise_exception=True)
+            
+            from .models import VoteAttempt
+            VoteAttempt.objects.create(
+                voter=request.user,
+                ip_address=ip_address,
+                position=serializer.validated_data['position'],
+                success=True,
+                user_agent=user_agent
+            )
+            
             self.perform_create(serializer)
-            return self.response(data=serializer.data, message="Vote cast successfully.", status_code=201)
+            
+            return self.response(
+                data=serializer.data, 
+                message="Vote cast successfully.", 
+                status_code=201
+            )
+            
         except ValidationError as e:
-            return self.response(error={"detail": str(e)}, status_code=400)
+            # Log failed vote attempt
+            position = request.data.get('position')
+            if position:
+                try:
+                    from .models import VoteAttempt
+                    position_obj = Position.objects.get(id=position)
+                    VoteAttempt.objects.create(
+                        voter=request.user,
+                        ip_address=ip_address,
+                        position=position_obj,
+                        success=False,
+                        reason=str(e),
+                        user_agent=user_agent
+                    )
+                except Position.DoesNotExist:
+                    pass
+            
+            return self.response(data={}, message=str(e), status_code=400)
         except Exception as e:
-            logger.error(f"Error casting vote: {str(e)}")
-            return self.response(error={"detail": "An error occurred while casting your vote."}, status_code=500)
+            logger.error(f"Voting error for user {request.user.matric_number}: {str(e)}")
+            return self.response(data={}, message="An error occurred while processing your vote.", status_code=500)
+
+    def perform_security_checks(self, user, ip_address):
+        """Perform comprehensive security checks before allowing vote."""
+        if user.last_login_ip and user.last_login_ip != ip_address:
+            if not self.is_same_network(user.last_login_ip, ip_address):
+                recent_votes = Vote.objects.filter(
+                    voter=user,
+                    voted_at__gte=timezone.now() - timedelta(minutes=30)
+                ).exists()
+                
+                if recent_votes:
+                    return {
+                        'blocked': True,
+                        'reason': 'Suspicious IP change detected during voting session.'
+                    }
+        
+        recent_votes_count = Vote.objects.filter(
+            voter=user,
+            voted_at__gte=timezone.now() - timedelta(seconds=20)
+        ).count()
+        
+        if recent_votes_count >= 3:
+            return {
+                'blocked': True,
+                'reason': 'Voting too quickly. Please slow down.'
+            }
+        
+        current_hour = timezone.now().hour
+        if hasattr(settings, 'VOTING_ALLOWED_HOURS'):
+            allowed_hours = getattr(settings, 'VOTING_ALLOWED_HOURS', range(6, 22))  # 6 AM to 10 PM default
+            if current_hour not in allowed_hours:
+                return {
+                    'blocked': True,
+                    'reason': 'Voting is only allowed during designated hours.'
+                }
+        
+        return {'blocked': False, 'reason': ''}
+
+    def is_same_network(self, ip1, ip2):
+        """Check if two IPs are in the same /24 network (basic check)."""
+        try:
+            return '.'.join(ip1.split('.')[:3]) == '.'.join(ip2.split('.')[:3])
+        except:
+            return False
+
+    def get_client_ip(self, request):
+        """Extract the real client IP address from request headers."""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0].strip()
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
 
     def perform_create(self, serializer):
         voter = self.request.user
@@ -995,4 +1200,4 @@ class AdminDashboardView(APIView, ResponseMixin):
         except Exception as e:
             logger.error(f"Admin dashboard failed: {str(e)}")
             return self.response(error={"detail": "Dashboard data retrieval failed."}, status_code=500)
-        
+

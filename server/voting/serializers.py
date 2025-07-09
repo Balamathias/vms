@@ -1,4 +1,6 @@
 from django.utils import timezone
+from django.core.cache import cache
+from datetime import timedelta
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer as DefaultTokenObtainPairSerializer
 
@@ -139,7 +141,6 @@ class VoteSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Set queryset dynamically based on position if available
         if 'data' in kwargs and 'position' in kwargs['data']:
             try:
                 position = Position.objects.get(id=kwargs['data']['position'])
@@ -150,11 +151,14 @@ class VoteSerializer(serializers.ModelSerializer):
     def validate(self, data):
         position = data.get('position')
         candidate = data.get('student_voted_for')
+        request = self.context.get('request')
 
         if not position.election.is_active or not (position.election.start_date <= timezone.now() <= position.election.end_date):
             raise serializers.ValidationError("This election is not currently active.")
 
-        # Check if candidate is eligible for this position (level, status, and gender)
+        if request and Vote.objects.filter(voter=request.user, position=position).exists():
+            raise serializers.ValidationError("You have already voted for this position.")
+
         eligible_candidates = position.get_eligible_candidates()
         if candidate not in eligible_candidates:
             gender_msg = ""
@@ -162,4 +166,43 @@ class VoteSerializer(serializers.ModelSerializer):
                 gender_msg = f" This position is restricted to {position.gender_restriction} candidates only."
             raise serializers.ValidationError(f"{candidate.full_name} is not eligible for this position.{gender_msg}")
 
+        if request:
+            self.validate_voting_pattern(request.user, position)
+
         return data
+
+    def validate_voting_pattern(self, user, position):
+        """Check for suspicious voting patterns."""
+        cache_key = f"last_vote_{user.id}"
+        last_vote_time = cache.get(cache_key)
+        
+        if last_vote_time:
+            time_diff = timezone.now() - last_vote_time
+            if time_diff < timedelta(seconds=10):
+                raise serializers.ValidationError("Please wait a moment before voting again.")
+        
+        cache.set(cache_key, timezone.now(), 60)  # Cache for 1 minute
+        
+        recent_votes = Vote.objects.filter(
+            voter=user,
+            voted_at__gte=timezone.now() - timedelta(seconds=20)
+        ).count()
+        
+        if recent_votes >= 2:
+            raise serializers.ValidationError("You are voting too quickly. Please take your time to consider each position.")
+        
+        if hasattr(self, 'initial_data') and self.initial_data and isinstance(self.initial_data, dict):
+            candidate_id = self.initial_data.get('student_voted_for')
+            if candidate_id:
+                same_candidate_votes = Vote.objects.filter(
+                    voter=user,
+                    student_voted_for_id=candidate_id,
+                    voted_at__gte=timezone.now() - timedelta(minutes=5)
+                ).count()
+                
+                if same_candidate_votes >= 2:
+                    # This might be legitimate if the candidate is running for multiple positions
+                    # but we log it for monitoring
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.info(f"User {user.matric_number} voting for same candidate {candidate_id} multiple times")

@@ -67,6 +67,10 @@ class Student(AbstractBaseUser, PermissionsMixin):
     is_verified = models.BooleanField(default=False, help_text="Indicates if the student has verified their account")
     is_nominated = models.BooleanField(default=False, help_text="Indicates if the student has been nominated for a position")
 
+    last_login_ip = models.GenericIPAddressField(null=True, blank=True)
+    failed_login_attempts = models.PositiveIntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True)
+
     objects = StudentManager()
 
     USERNAME_FIELD = 'matric_number'
@@ -142,6 +146,8 @@ class Position(models.Model):
             queryset = queryset.filter(gender=self.gender_restriction)
         if self.position_type == 'junior':
             queryset = queryset.filter(level__in=[100, 200, 300, 400])
+        if self.position_type == 'senior':
+            queryset = queryset.filter(level__in=[500])
         return queryset
 
 
@@ -186,3 +192,36 @@ class Vote(models.Model):
     def clean(self):
         if not self.student_voted_for.is_candidate:
             raise ValidationError("You can only vote for active and Qualified students.")
+
+class IPRestriction(models.Model):
+    ip_address = models.GenericIPAddressField(unique=True)
+    is_blocked = models.BooleanField(default=False)
+    max_accounts_per_ip = models.PositiveIntegerField(default=3)
+    reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"IP: {self.ip_address} - {'Blocked' if self.is_blocked else 'Allowed'}"
+
+class LoginAttempt(models.Model):
+    ip_address = models.GenericIPAddressField()
+    user_agent = models.TextField()
+    matric_number = models.CharField(max_length=20, null=True, blank=True)
+    success = models.BooleanField(default=False)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+
+class VoteAttempt(models.Model):
+    voter = models.ForeignKey(Student, on_delete=models.CASCADE, null=True, blank=True)
+    ip_address = models.GenericIPAddressField()
+    position = models.ForeignKey(Position, on_delete=models.CASCADE)
+    success = models.BooleanField(default=False)
+    reason = models.TextField(blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    user_agent = models.TextField()
+    
+    class Meta:
+        ordering = ['-timestamp']

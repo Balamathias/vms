@@ -38,8 +38,8 @@ const PositionDetailPage = () => {
     vote({position: params?.id as any, student_voted_for: selectedCandidate}, {
       onSuccess: (data) => {
         if (data?.error) {
-          console.error("Vote submission failed:", data.error.detail)
-          toast.error(data?.error?.detail)
+          console.error("Vote submission failed:", data.error)
+          toast.error("An error occurred while submitting your vote, please try again.")
           return
         }
         setIsVoteSuccess(true)
@@ -50,7 +50,7 @@ const PositionDetailPage = () => {
       },
       onError: (error) => {
         console.error("Vote submission error:", error)
-        toast.error(error?.message)
+        toast.error("An error occurred while submitting your vote, please try again.")
       },
     })
   }
