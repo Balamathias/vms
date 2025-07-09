@@ -15,11 +15,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 interface BulkPositionFormData {
     election_id: string;
     positions: string;
+    position_type: 'senior' | 'junior';
 }
 
 export default function PositionsPage() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [selectedElection, setSelectedElection] = useState<string>('');
+    const [selectedPositionType, setSelectedPositionType] = useState<string>('');
     const queryClient = useQueryClient();
 
     const { data: positionsData, isLoading: positionsLoading } = useQuery({
@@ -41,7 +43,8 @@ export default function PositionsPage() {
                     const [name, genderRestriction] = line.split('|');
                     return {
                         name: name.trim(),
-                        gender_restriction: genderRestriction?.trim() || 'any'
+                        gender_restriction: genderRestriction?.trim() || 'any',
+                        position_type: data.position_type
                     };
                 });
 
@@ -61,8 +64,13 @@ export default function PositionsPage() {
     });
 
     const filteredPositions = positionsData?.results?.filter(position => {
-        if (!selectedElection || selectedElection === 'any') return true;
-        return position.election === selectedElection;
+        if (selectedElection && selectedElection !== 'any' && position.election !== selectedElection) {
+            return false;
+        }
+        if (selectedPositionType && selectedPositionType !== 'any' && position.position_type !== selectedPositionType) {
+            return false;
+        }
+        return true;
     });
 
     return (
@@ -87,23 +95,53 @@ export default function PositionsPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     <div className="flex items-center gap-2">
                         <Filter className="h-4 w-4 text-white/70" />
-                        <span className="text-white/70 text-sm">Filter by Election:</span>
+                        <span className="text-white/70 text-sm">Filters:</span>
                     </div>
-                    <Select value={selectedElection} onValueChange={setSelectedElection}>
-                        <SelectTrigger className="w-full sm:w-48 bg-white/10 border-white/20 text-white focus:border-white/40 focus:ring-white/20">
-                            <SelectValue placeholder="All Elections" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white/10 backdrop-blur-xl border-white/20 text-white">
-                            <SelectItem value='any' className="text-white hover:bg-white/20">
-                                All Elections
-                            </SelectItem>
-                            {electionsData?.data?.map((election) => (
-                                <SelectItem key={election.id} value={election.id} className="text-white hover:bg-white/20">
-                                    {election.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="flex flex-col gap-2">
+                            <span className="text-white/70 text-xs">Election:</span>
+                            <Select value={selectedElection} onValueChange={setSelectedElection}>
+                                <SelectTrigger className="w-full sm:w-48 bg-white/10 border-white/20 text-white focus:border-white/40 focus:ring-white/20">
+                                    <SelectValue placeholder="All Elections" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white/10 backdrop-blur-xl border-white/20 text-white">
+                                    <SelectItem value='any' className="text-white hover:bg-white/20">
+                                        All Elections
+                                    </SelectItem>
+                                    {electionsData?.data?.map((election) => (
+                                        <SelectItem key={election.id} value={election.id} className="text-white hover:bg-white/20">
+                                            {election.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <span className="text-white/70 text-xs">Position Type:</span>
+                            <Select value={selectedPositionType} onValueChange={setSelectedPositionType}>
+                                <SelectTrigger className="w-full sm:w-48 bg-white/10 border-white/20 text-white focus:border-white/40 focus:ring-white/20">
+                                    <SelectValue placeholder="All Types" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white/10 backdrop-blur-xl border-white/20 text-white">
+                                    <SelectItem value='any' className="text-white hover:bg-white/20">
+                                        All Types
+                                    </SelectItem>
+                                    <SelectItem value='senior' className="text-white hover:bg-white/20">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
+                                            Senior Awards
+                                        </div>
+                                    </SelectItem>
+                                    <SelectItem value='junior' className="text-white hover:bg-white/20">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                                            Junior Awards
+                                        </div>
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
                     <div className="sm:ml-auto text-white/70 text-sm text-center sm:text-left">
                         {filteredPositions?.length || 0} positions found
                     </div>
@@ -174,7 +212,7 @@ function PositionCard({ position }: { position: Position }) {
                         <div className="text-xs text-white/60">Votes</div>
                     </div>
                 </div>
-                <div className="flex items-center justify-center">
+                <div className="flex items-center justify-center gap-2">
                     <span className={cn(
                         "px-2 py-1 rounded-full text-xs font-medium",
                         position.gender_restriction === 'any'
@@ -185,6 +223,14 @@ function PositionCard({ position }: { position: Position }) {
                     )}>
                         {position.gender_restriction === 'any' ? 'All Genders' : 
                          position.gender_restriction === 'male' ? 'Male Only' : 'Female Only'}
+                    </span>
+                    <span className={cn(
+                        "px-2 py-1 rounded-full text-xs font-medium",
+                        position.position_type === 'senior'
+                            ? "bg-purple-500/20 text-purple-400 border border-purple-400/30"
+                            : "bg-orange-500/20 text-orange-400 border border-orange-400/30"
+                    )}>
+                        {position.position_type === 'senior' ? 'Senior Award' : 'Junior Award'}
                     </span>
                 </div>
             </div>
@@ -213,7 +259,8 @@ function CreatePositionsModal({
     const form = useForm<BulkPositionFormData>({
         defaultValues: {
             election_id: '',
-            positions: ''
+            positions: '',
+            position_type: 'senior'
         }
     });
 
@@ -254,6 +301,48 @@ function CreatePositionsModal({
                                         </Select>
                                     </FormControl>
                                     <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="position_type"
+                            rules={{ required: "Position type is required" }}
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-white/70">Position Type</FormLabel>
+                                    <FormControl>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <SelectTrigger className="w-full bg-white/10 border-white/20 text-white focus:border-white/40 focus:ring-white/20">
+                                                <SelectValue placeholder="Select Position Type" />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-white/10 backdrop-blur-xl border-white/20 text-white">
+                                                <SelectItem 
+                                                    value="senior" 
+                                                    className="text-white hover:bg-white/20 focus:bg-white/20"
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
+                                                        Senior Award (500 Level)
+                                                    </div>
+                                                </SelectItem>
+                                                <SelectItem 
+                                                    value="junior" 
+                                                    className="text-white hover:bg-white/20 focus:bg-white/20"
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                                                        Junior Award (100-400 Level)
+                                                    </div>
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </FormControl>
+                                    <FormMessage />
+                                    <div className="text-xs text-white/60 mt-1">
+                                        Senior awards are for 500 level students, Junior awards for 100-400 level students
+                                    </div>
                                 </FormItem>
                             )}
                         />

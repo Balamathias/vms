@@ -62,14 +62,14 @@ class SecurityMiddleware:
         now = timezone.now()
         
         requests = [req_time for req_time in requests if now - req_time < timedelta(hours=1)]
-        
-        # Check if rate limit exceeded (100 requests per hour for regular endpoints)
-        max_requests = 100
+
+        # Check if rate limit exceeded (1000 requests per hour for regular endpoints)
+        max_requests = 1000
         
         # Stricter limits for authentication endpoints
         if '/api/v1/auth/' in request.path:
             max_requests = 20
-            
+
         if len(requests) >= max_requests:
             return True
             

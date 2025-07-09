@@ -47,6 +47,7 @@ export interface Position extends BaseEntity {
     candidate_count?: number;
     election?: string;
     gender_restriction: 'any' | 'male' | 'female';
+    position_type: 'senior' | 'junior';
 }
 
 // Candidate related types
