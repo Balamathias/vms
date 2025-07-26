@@ -686,7 +686,8 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
                 position = Position.objects.create(
                     name=position_data['name'],
                     election=election,
-                    gender_restriction=position_data.get('gender_restriction', 'any')
+                    gender_restriction=position_data.get('gender_restriction', 'any'),
+                    position_type=position_data.get('position_type', 'senior'),
                 )
                 created_positions.append(position)
             

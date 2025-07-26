@@ -26,7 +26,6 @@ const Navbar = ({ user }: NavbarProps) => {
   }
   
   const handleLogout = () => {
-    // Add logout logic here
     logout(undefined, {
       onSuccess: () => {
         router.push('/login')
