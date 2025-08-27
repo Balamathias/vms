@@ -114,8 +114,8 @@ const Home = ({ user, winners }: HomeProps) => {
               
               <p className="text-white/70 group-hover:text-white/80 mb-6 flex-grow text-sm sm:text-base leading-relaxed">
                 {user ? 
-                  `Hello ${user.full_name.split(' ')[0]}! Ready to vote for the most outstanding graduates? Your voice makes a difference! 🗳️` :
-                  'Join the voting process and help recognize exceptional graduates who have made their mark at ABU.'
+                  `Hello ${user.full_name.split(' ')[0]}! Ready to vote for the most outstanding graduands/students? Your voice makes a difference! 🗳️` :
+                  'Join the voting process and help recognize exceptional graduands/students who have made their mark at ABU.'
                 }
               </p>
               
@@ -187,7 +187,7 @@ const Home = ({ user, winners }: HomeProps) => {
               
               <p className="text-white/70 group-hover:text-white/80 mb-6 flex-grow text-sm sm:text-base leading-relaxed">
                 {user ? 
-                  'Your participation helps celebrate excellence and recognize the incredible achievements of your fellow graduates! 🌟' :
+                  'Your participation helps celebrate excellence and recognize the incredible achievements of your fellow graduands/students! 🌟' :
                   'Join the community and be part of celebrating academic excellence at Ahmadu Bello University.'
                 }
               </p>
