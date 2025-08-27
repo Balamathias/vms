@@ -68,7 +68,7 @@ class SecurityMiddleware:
         
         # Stricter limits for authentication endpoints
         if '/api/v1/auth/' in request.path:
-            max_requests = 20
+            max_requests = 420
 
         if len(requests) >= max_requests:
             return True
