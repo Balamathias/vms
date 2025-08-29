@@ -236,6 +236,28 @@ const Home = ({ user, winners }: HomeProps) => {
       </div>
       
       {winners?.length ? <AwardsShowcase winners={winners} /> : null}
+
+      <footer className="w-full mt-10 mb-6 flex items-center justify-center">
+        <a
+          href="https://matiecodes-folio.vercel.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs sm:text-sm text-white/50 hover:text-white/80 transition-colors inline-flex items-center gap-1 group underline"
+        >
+          <span className="opacity-80 group-hover:opacity-100 transition-opacity">
+            Built with
+          </span>
+          <span className="text-pink-400 animate-pulse group-hover:scale-110 transition-transform">
+            💖
+          </span>
+          <span className="opacity-80 group-hover:opacity-100 transition-opacity">
+            by
+          </span>
+          <span className="font-semibold bg-gradient-to-r from-pink-400 via-fuchsia-400 to-purple-400 bg-clip-text text-transparent">
+            Mathias
+          </span>
+        </a>
+      </footer>
     </>
   );
 };
