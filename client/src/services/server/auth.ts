@@ -70,11 +70,17 @@ export async function login({ matric_number, password }: LoginCredentials): Prom
     }
 
   } catch (error: any) {
+    const status = error?.response?.status;
+    const detail =
+      error?.response?.data?.detail ||
+      error?.response?.data?.message ||
+      error?.message ||
+      "An unknown error has occurred.";
     return {
       data: null,
-      message: error?.response?.detail || error?.response?.error?.detail || error?.response?.data?.detail,
-      status: error?.status,
-      error: { detail: error?.response?.detail || error?.response?.error?.detail || error?.response?.data?.detail }
+      message: detail,
+      status,
+      error: { detail }
     }
   }
 }
@@ -118,16 +124,24 @@ export async function logout(): Promise<StackResponse<{ message: string } | null
   }
 }
 
-/**
- * @description get a user's refreshToken
+/** * @description Refresh JWT token using the refresh token stored in cookies.
+ * @returns new access token or null
  */
 export async function refreshToken() {
 
   const cookie = await cookies()
 
   try {
-    const { data } = await stackbase.post("/auth/refresh/", { refresh: cookie.get("refreshToken")?.value })
-    cookie.set("token", data?.access)
+    // Use the correct cookie key set during login: "refresh_token"
+    const refresh = cookie.get("refresh_token")?.value
+    if (!refresh) {
+      return null
+    }
+
+    const { data } = await stackbase.post("/auth/refresh/", { refresh })
+    if (data?.access) {
+      cookie.set("token", data.access)
+    }
 
     return data as any
 
