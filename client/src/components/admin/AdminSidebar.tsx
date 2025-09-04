@@ -81,9 +81,9 @@ export default function AdminSidebar() {
             >
                 <div className="flex h-full flex-col">
                     {/* Header */}
-                    <div className="flex items-center justify-between p-6 border-b border-white/20">
+                    <div className="flex items-center justify-between p-6">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600">
+                            <div className="p-2 rounded-lg ">
                                 <Shield className="h-6 w-6 text-white" />
                             </div>
                             <div>

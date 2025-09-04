@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 
 const PositionsPage = () => {
   const [timeLeft, setTimeLeft] = useState('')
+  const [timeProgress, setTimeProgress] = useState<number | null>(null) // percentage of remaining time
   const router = useRouter()
 
   const { data: activeElection, isPending } = useActiveElection()
@@ -21,25 +22,37 @@ const PositionsPage = () => {
       const endDate = election?.end_date ? new Date(election.end_date) : null
       if (!endDate) {
         setTimeLeft('')
+        setTimeProgress(null)
         return
       }
-      
-      const difference = endDate.getTime() - now.getTime()
-      if (difference <= 0) {
+
+      const diff = endDate.getTime() - now.getTime()
+      if (diff <= 0) {
         setTimeLeft('Voting closed')
+        setTimeProgress(0)
         return
       }
-      
-      const days = Math.floor(difference / (1000 * 60 * 60 * 24))
-      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60))
-      
-      setTimeLeft(`${days}d ${hours}h ${minutes}m remaining`)
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+      setTimeLeft(`${days}d ${hours}h ${minutes}m left`)
+
+      // Progress (if start_date exists)
+      if (election?.start_date) {
+        const startDate = new Date(election.start_date)
+        const total = endDate.getTime() - startDate.getTime()
+        if (total > 0) {
+          const remainingPct = (diff / total) * 100
+            setTimeProgress(Math.min(100, Math.max(0, remainingPct)))
+        } else setTimeProgress(null)
+      } else {
+        setTimeProgress(null)
+      }
     }
-    
+
     calculateTimeLeft()
     const interval = setInterval(calculateTimeLeft, 60000) // Update every minute
-    
     return () => clearInterval(interval)
   }, [election])
   
@@ -79,116 +92,74 @@ const PositionsPage = () => {
   }
   
   return (
-    <div className="min-h-screen px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-      {/* Floating background elements */}
+    <div className="min-h-screen px-4 sm:px-6 lg:px-8 my-8 sm:my-10">
+      {/* Light, less intrusive background accents */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-20 w-72 h-72 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-20 right-20 w-96 h-96 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full blur-3xl animate-pulse delay-1000" />
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-gradient-to-br from-yellow-400/10 to-orange-400/10 rounded-full blur-3xl animate-pulse delay-2000" />
+        <div className="absolute top-32 left-10 w-56 h-56 bg-gradient-to-br from-purple-400/15 to-pink-400/15 rounded-full blur-3xl" />
+        <div className="absolute bottom-24 right-10 w-64 h-64 bg-gradient-to-br from-blue-400/15 to-cyan-400/15 rounded-full blur-3xl" />
       </div>
 
-      {/* Header section */}
-      <div className="relative z-10 mb-12 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: -30 }}
+      {/* Header - simplified */}
+      <div className="relative z-10 mb-10 text-center">
+        <motion.h1
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-3xl p-8 sm:p-12 mx-auto max-w-4xl shadow-2xl"
+          transition={{ duration: 0.6 }}
+          className="text-3xl sm:text-4xl font-bold tracking-tight"
         >
-          <motion.h1 
-            className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
-            <span className="bg-gradient-to-r from-amber-300 via-yellow-400 to-orange-400 text-transparent bg-clip-text">
-              Cast Your Vote
-            </span>
-          </motion.h1>
-          
-          <motion.p 
-            className="text-white/80 text-base sm:text-lg lg:text-xl max-w-3xl mx-auto leading-relaxed"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          >
-            Your voice matters! Select a position below to vote for exceptional candidates in the{' '}
-            <span className="font-semibold text-white">{election?.name}</span>
-          </motion.p>
-
-          {/* Decorative elements */}
-          <div className="absolute top-4 right-4 w-12 h-12 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-xl" />
-          <div className="absolute bottom-4 left-4 w-8 h-8 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full blur-lg" />
-        </motion.div>
+          <span className="bg-gradient-to-r from-amber-300 via-yellow-400 to-orange-400 bg-clip-text text-transparent">Cast Your Vote</span>
+        </motion.h1>
+        <motion.p
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.15 }}
+          className="mt-4 text-sm sm:text-base text-white/70 max-w-2xl mx-auto"
+        >
+          Select a position and support outstanding candidates in the <span className="text-white font-medium">{election?.name}</span>
+        </motion.p>
       </div>
-      
-      {/* Election Info Bar */}
-      <motion.div 
-        className="relative z-10 mb-12 max-w-6xl mx-auto"
-        initial={{ opacity: 0, y: 20 }}
+
+      {/* Slim Election Info Bar (less clutter) */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.4 }}
+        transition={{ duration: 0.45, delay: 0.2 }}
+        className="relative z-10 mx-auto mb-10 w-full max-w-5xl"
       >
-        <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-center">
-            {/* Time remaining */}
-            <motion.div 
-              className="flex flex-col sm:flex-row items-center gap-3 text-center sm:text-left"
-              whileHover={{ scale: 1.02 }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-yellow-500/20 border border-amber-400/20">
-                <Clock className="h-6 w-6 text-amber-300" />
-              </div>
-              <div>
-                <div className="text-xs text-white/60 uppercase tracking-wide font-medium">Time Left</div>
-                <div className="text-white font-semibold text-sm sm:text-base">{timeLeft || 'Calculating...'}</div>
-              </div>
-            </motion.div>
-
-            {/* Vertical divider */}
-            <div className="hidden lg:flex justify-center">
-              <div className="w-px h-12 bg-gradient-to-b from-transparent via-white/20 to-transparent" />
+        <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl px-5 py-4 shadow-lg">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Time chip */}
+            <div className="flex items-center gap-2 rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-200">
+              <Clock className="h-4 w-4" />
+              <span aria-live="polite">{timeLeft || 'Calculating…'}</span>
             </div>
-
-            {/* Positions count */}
-            <motion.div 
-              className="flex flex-col sm:flex-row items-center gap-3 text-center sm:text-left"
-              whileHover={{ scale: 1.02 }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-400/20">
-                <BarChart className="h-6 w-6 text-blue-300" />
-              </div>
-              <div>
-                <div className="text-xs text-white/60 uppercase tracking-wide font-medium">Positions</div>
-                <div className="text-white font-semibold text-sm sm:text-base">
-                  {election?.positions.length || 0} Available
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Vertical divider */}
-            <div className="hidden lg:flex justify-center">
-              <div className="w-px h-12 bg-gradient-to-b from-transparent via-white/20 to-transparent" />
+            {/* Positions chip */}
+            <div className="flex items-center gap-2 rounded-lg border border-blue-400/25 bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-200">
+              <BarChart className="h-4 w-4" />
+              <span>{election?.positions.length || 0} Positions</span>
             </div>
-
-            {/* View results button */}
-            <motion.button 
-              onClick={() => router.push('/results')} 
-              className="group relative overflow-hidden px-6 py-3 bg-gradient-to-r from-white/10 to-white/5 hover:from-white/20 hover:to-white/10 border border-white/20 hover:border-white/30 rounded-xl text-white font-medium transition-all duration-300 shadow-lg hover:shadow-xl"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              <span className="relative z-10">View Results</span>
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            </motion.button>
+            <div className="ml-auto flex items-center gap-3">
+              <button
+                onClick={() => router.push('/results')}
+                className="group relative overflow-hidden rounded-lg border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold text-white/80 hover:text-white hover:bg-white/15 transition-colors"
+              >
+                View Results
+              </button>
+            </div>
           </div>
-
-          {/* Decorative background elements */}
-          <div className="absolute top-2 right-2 w-8 h-8 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-sm" />
-          <div className="absolute bottom-2 left-2 w-6 h-6 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full blur-sm" />
+          {/* Progress bar (hidden if no start_date) */}
+          {timeProgress !== null && (
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-2 rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 transition-[width] duration-700"
+                  style={{ width: `${timeProgress}%` }}
+                  aria-label="Time remaining"
+                />
+              </div>
+              <span className="text-[10px] font-medium text-white/50 w-10 text-right">{Math.round(timeProgress)}%</span>
+            </div>
+          )}
         </div>
       </motion.div>
       
