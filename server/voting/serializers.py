@@ -46,14 +46,19 @@ class StudentSerializer(serializers.ModelSerializer):
 class DynamicCandidateSerializer(serializers.ModelSerializer):
     bio = serializers.SerializerMethodField()
     photo = serializers.SerializerMethodField()
+    alias = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
-        fields = ['id', 'full_name', 'picture', 'bio', 'photo']
+        fields = ['id', 'full_name', 'picture', 'bio', 'photo', 'alias']
 
     def get_bio(self, obj):
         enhancement = self._get_enhancement(obj)
         return enhancement.bio if enhancement else ""
+    
+    def get_alias(self, obj):
+        enhancement = self._get_enhancement(obj)
+        return enhancement.alias if enhancement else ""
 
     def get_photo(self, obj):
         enhancement = self._get_enhancement(obj)

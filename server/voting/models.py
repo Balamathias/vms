@@ -170,6 +170,8 @@ class Candidate(models.Model):
     bio = models.TextField(blank=True, null=True)
     photo = models.ImageField(upload_to='candidates/', blank=True, null=True)
 
+    alias = models.CharField(max_length=100, blank=True, null=True, help_text="Optional alias or nickname for the candidate")
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -107,7 +107,7 @@ class PositionAdmin(admin.ModelAdmin):
 
 @admin.register(Candidate)
 class CandidateAdmin(admin.ModelAdmin):
-    list_display = ('student_name', 'matric_number', 'position', 'election', 'votes_received', 'photo_preview')
+    list_display = ('student_name', 'matric_number', 'position', 'election', 'votes_received', 'photo_preview', 'alias')
     list_filter = ('position__election', 'position', 'student__level')
     search_fields = ('student__full_name', 'student__matric_number', 'position__name')
     ordering = ('position__election__start_date', 'position__name', 'student__full_name')
@@ -115,7 +115,7 @@ class CandidateAdmin(admin.ModelAdmin):
     
     fieldsets = (
         (None, {'fields': ('student', 'position')}),
-        ('Enhancement Info', {'fields': ('bio', 'photo', 'photo_preview')}),
+        ('Enhancement Info', {'fields': ('bio', 'photo', 'photo_preview', 'alias')}),
     )
     
     def student_name(self, obj):

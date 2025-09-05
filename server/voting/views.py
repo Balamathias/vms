@@ -29,7 +29,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.core.cache import cache
-from datetime import timedelta
+from datetime import timedelta, datetime
+import csv, io, logging, time
+from django.db import transaction
 import logging
 
 from .models import Election, Vote, Candidate, Student, Position, LoginAttempt, IPRestriction
@@ -224,67 +226,154 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
     @action(detail=False, methods=['post'], permission_classes=[IsAdminUser], parser_classes=[MultiPartParser, FormParser])
     def bulk_import(self, request):
         """
-        Bulk import students from CSV file.
-        Expected CSV format: matric_number,full_name,level,gender,state_of_origin,email,phone_number
+        High‑performance bulk import of students from CSV.
+        Expected columns (case‑insensitive):
+          matric_number, full_name, level, gender(optional), state_of_origin, email(optional), phone_number(optional), date_of_birth(YYYY-MM-DD optional)
+
+        Optimizations:
+          * Single pass read (no full file kept as giant string unless small)
+          * Pre-collect matric numbers -> one DB query for existing
+          * Cache hashed default passwords per unique state_of_origin
+          * bulk_create with batching (no per-row INSERT)
+          * Minimal per-row validation & typed casting
         """
+        start_time = time.perf_counter()
         try:
             if 'file' not in request.FILES:
                 return self.response(error={"detail": "No file provided."}, status_code=400)
-            
+
             csv_file = request.FILES['file']
-            if not csv_file.name.endswith('.csv'):
+            if not csv_file.name.lower().endswith('.csv'):
                 return self.response(error={"detail": "File must be a CSV."}, status_code=400)
-            
-            data_set = csv_file.read().decode('UTF-8')
-            io_string = io.StringIO(data_set)
-            reader = csv.DictReader(io_string)
-            
-            created_count = 0
+
+            # Stream decode to avoid unnecessary copies
+            try:
+                decoded = io.TextIOWrapper(csv_file.file, encoding='utf-8')
+            except Exception:
+                decoded = io.StringIO(csv_file.read().decode('utf-8'))
+
+            reader = csv.DictReader(decoded)
+            rows = list(reader)
+            total_rows = len(rows)
+            if total_rows == 0:
+                return self.response(data={'created_count': 0, 'errors': []}, message="Empty CSV provided.")
+
+            required_fields = {'matric_number', 'full_name', 'state_of_origin'}
+            default_level = int(request.data.get('default_level', 500))
+            strict_dates = str(request.data.get('strict_dates', 'false')).lower() in {'1','true','yes'}
+            accepted_date_formats = ['%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%d.%m.%Y']
+
+            header = {h.lower().strip(): h for h in (reader.fieldnames or [])}
+            missing_required = [f for f in required_fields if f not in header]
+            if missing_required:
+                return self.response(error={"detail": f"Missing required columns: {', '.join(missing_required)}"}, status_code=400)
+
+            matric_numbers = []
+            normalized_rows = []
             errors = []
-            
-            for row_num, row in enumerate(reader, start=2):
+
+            for idx, raw in enumerate(rows, start=2):
                 try:
-                    # Validate required fields
-                    required_fields = ['matric_number', 'full_name', 'level', 'state_of_origin', 'date_of_birth']
-                    for field in required_fields:
-                        if not row.get(field, '').strip():
-                            errors.append(f"Row {row_num}: Missing {field}")
-                            continue
-                    
-                    # Check if student already exists
-                    if Student.objects.filter(matric_number=row['matric_number'].upper()).exists():
-                        errors.append(f"Row {row_num}: Student {row['matric_number']} already exists")
+                    norm = {k.lower().strip(): (v.strip() if isinstance(v, str) else v) for k, v in raw.items()}
+                    missing = [f for f in required_fields if not norm.get(f)]
+                    if missing:
+                        errors.append(f"Row {idx}: Missing required field(s): {', '.join(missing)}")
                         continue
-                    
-                    # Create student
-                    student_data = {
-                        'matric_number': row['matric_number'].upper(),
-                        'full_name': row['full_name'].strip(),
-                        'level': int(row['level']),
-                        'gender': row.get('gender', 'other').lower(),
-                        'state_of_origin': row.get('state_of_origin', '').strip(),
-                        'email': row.get('email', '').strip() or None,
-                        'phone_number': row.get('phone_number', '').strip() or None,
-                        'password': make_password(row.get('state_of_origin', 'password123').strip()),
-                        'date_of_birth': row.get('date_of_birth', '').strip() or None,
-                    }
-                    
-                    Student.objects.create(**student_data)
-                    created_count += 1
-                    
+                    matric = norm['matric_number'].upper()
+                    norm['matric_number'] = matric
+                    level_raw = norm.get('level')
+                    if level_raw:
+                        try:
+                            norm['level'] = int(level_raw)
+                        except ValueError:
+                            errors.append(f"Row {idx}: Invalid level '{level_raw}' -> using default {default_level}")
+                            norm['level'] = default_level
+                    else:
+                        norm['level'] = default_level
+                    gender = (norm.get('gender') or 'other').lower()
+                    if gender not in {'male', 'female', 'other'}:
+                        gender = 'other'
+                    norm['gender'] = gender
+                    dob_raw = norm.get('date_of_birth') or ''
+                    dob_val = None
+                    if dob_raw:
+                        parsed = False
+                        for fmt in accepted_date_formats:
+                            try:
+                                dob_val = datetime.strptime(dob_raw, fmt).date()
+                                parsed = True
+                                break
+                            except ValueError:
+                                continue
+                        if not parsed:
+                            msg = f"Row {idx}: Unrecognized date_of_birth '{dob_raw}' (accepted: YYYY-MM-DD, DD-MM-YYYY, DD/MM/YYYY)"
+                            if strict_dates:
+                                errors.append(msg)
+                                continue
+                            else:
+                                errors.append(msg + ' -> stored as NULL')
+                                dob_val = None
+                    norm['date_of_birth'] = dob_val
+                    normalized_rows.append((idx, norm))
+                    matric_numbers.append(matric)
                 except Exception as e:
-                    errors.append(f"Row {row_num}: {str(e)}")
-            
+                    errors.append(f"Row {idx}: {str(e)}")
+
+            if not normalized_rows:
+                elapsed = time.perf_counter() - start_time
+                return self.response(data={'created_count': 0, 'errors': errors[:25], 'time_seconds': round(elapsed,3)}, message="No valid rows to import.")
+
+            existing_set = set(
+                Student.objects.filter(matric_number__in=matric_numbers).values_list('matric_number', flat=True)
+            )
+
+            to_create = []
+            hashed_cache = {}
+            default_password_fallback = make_password('password123')
+
+            for idx, norm in normalized_rows:
+                if norm['matric_number'] in existing_set:
+                    errors.append(f"Row {idx}: Student {norm['matric_number']} already exists")
+                    continue
+                state = norm.get('state_of_origin') or 'password123'
+                if state not in hashed_cache:
+                    hashed_cache[state] = make_password(state)
+                pwd = hashed_cache.get(state, default_password_fallback)
+                to_create.append(Student(
+                    matric_number=norm['matric_number'],
+                    full_name=norm['full_name'],
+                    level=norm['level'],
+                    gender=norm['gender'],
+                    state_of_origin=norm.get('state_of_origin') or '',
+                    email=(norm.get('email') or None) or None,
+                    phone_number=(norm.get('phone_number') or None) or None,
+                    password=pwd,
+                    date_of_birth=norm['date_of_birth'],
+                ))
+
+            created_count = 0
+            if to_create:
+                try:
+                    with transaction.atomic():
+                        Student.objects.bulk_create(to_create, batch_size=1000)
+                    created_count = len(to_create)
+                except Exception as e:
+                    logger.error(f"Bulk create failed: {str(e)}")
+                    errors.append(f"Bulk create failed: {str(e)}")
+
+            elapsed = time.perf_counter() - start_time
             return self.response(
                 data={
                     'created_count': created_count,
-                    'errors': errors[:10]  # Limit errors shown
+                    'skipped': total_rows - created_count,
+                    'errors': errors[:25],
+                    'time_seconds': round(elapsed, 3),
+                    'avg_ms_per_created': round((elapsed / created_count * 1000), 2) if created_count else None
                 },
-                message=f"Import completed. {created_count} students created."
+                message=f"Import completed: {created_count} created, {len(errors)} issues."
             )
-            
         except Exception as e:
-            logger.error(f"Bulk import failed: {str(e)}")
+            logger.error(f"Bulk import fatal error: {str(e)}")
             return self.response(error={"detail": "Import failed."}, status_code=500)
 
     @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
