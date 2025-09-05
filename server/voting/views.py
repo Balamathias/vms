@@ -1228,8 +1228,33 @@ class ChangePasswordView(APIView, ResponseMixin):
 
     def post(self, request, *args, **kwargs):
         serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
+        try:
+            serializer.is_valid(raise_exception=False)
+            if serializer.errors:
+                flat_errors = []
+                errors_data = serializer.errors
+                if isinstance(errors_data, dict):
+                    iterable = errors_data.items()
+                else:
+                    iterable = [("non_field_errors", msg) for msg in errors_data]
+                for field, messages in iterable:
+                    if isinstance(messages, (list, tuple)):
+                        for m in messages:
+                            flat_errors.append(f"{field}: {m}")
+                    else:
+                        flat_errors.append(f"{field}: {messages}")
+                primary_message = flat_errors[0] if flat_errors else "Invalid data."
+                return self.response(
+                    data={"errors": flat_errors},
+                    message=primary_message,
+                    status_code=400
+                )
             serializer.save()
             return self.response(data={}, message="Password changed successfully.")
-        return self.response(error=serializer.errors, status_code=400)
+        except Exception:
+            logger.exception("Password change failed.")
+            return self.response(
+                error={"detail": "Unable to change password at this time."},
+                status_code=500
+            )
     
