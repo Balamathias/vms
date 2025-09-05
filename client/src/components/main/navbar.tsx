@@ -6,6 +6,7 @@ import { LogOut, User, Menu, X, Award } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Student } from '@/@types/db'
 import { useLogout } from '@/services/client/auth'
+import { cn } from '@/lib/utils'
 
 interface NavbarProps { user?: Student }
 
@@ -164,11 +165,11 @@ const Navbar = ({ user }: NavbarProps) => {
                       <button
                         onClick={() => { if (user.is_staff) router.push('/admin'); setMenu(false) }}
                         disabled={!user.is_staff}
-                        className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white/70 disabled:opacity-40 disabled:cursor-not-allowed hover:text-white hover:bg-white/10"
+                        className={cn("flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white/70 disabled:opacity-40 disabled:cursor-not-allowed hover:text-white hover:bg-white/10")}
                       >Admin</button>
                       <button
                         onClick={() => { handleLogout(); setMenu(false) }}
-                        className="flex-1 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-300 hover:bg-red-500/20 hover:text-red-200"
+                        className={cn("flex-1 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-300 hover:bg-red-500/20 hover:text-red-200 hidden",  user.is_staff && 'md:inline-flex')}
                       >Logout</button>
                     </div>
                   </>
