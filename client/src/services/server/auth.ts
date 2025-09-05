@@ -1,6 +1,6 @@
 'use server'
 
-import { CurrentUserResponse, LoginCredentials, LoginResponse, TokenPair, Student as User } from "@/@types/db"
+import { ChangePasswordCredentials, CurrentUserResponse, LoginCredentials, LoginResponse, TokenPair, Student as User } from "@/@types/db"
 import { cookies } from "next/headers"
 import { setCookies, status as STATUS } from "@/lib/utils"
 import { stackbase } from "../server.entry"
@@ -69,6 +69,27 @@ export async function login({ matric_number, password }: LoginCredentials): Prom
       }
     }
 
+  } catch (error: any) {
+    const status = error?.response?.status;
+    const detail =
+      error?.response?.data?.detail ||
+      error?.response?.data?.message ||
+      error?.message ||
+      "An unknown error has occurred.";
+    return {
+      data: null,
+      message: detail,
+      status,
+      error: { detail }
+    }
+  }
+}
+
+export async function changePassword({ matric_number, old_password, new_password, date_of_birth }: ChangePasswordCredentials): Promise<StackResponse<{ message: string } | null>> {
+  try {
+    const { data, status } = await stackbase.post("/auth/change-password/", { matric_number, old_password, new_password, date_of_birth, confirm_password: new_password })
+
+    return data as StackResponse<{ message: string } | null>
   } catch (error: any) {
     const status = error?.response?.status;
     const detail =

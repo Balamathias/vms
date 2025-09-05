@@ -394,6 +394,7 @@ export const createElection = async (data: {
     name: string;
     start_date: string;
     end_date: string;
+    type?: 'general' | 'specific';
 }): Promise<StackResponse<Election | null>> => {
     try {
         const { data: response } = await stackbase.post("/elections/", data);

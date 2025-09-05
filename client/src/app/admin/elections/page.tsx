@@ -18,6 +18,7 @@ export interface ElectionFormData {
     name: string;
     start_date: string;
     end_date: string;
+    type?: 'general' | 'specific';
 }
 
 export default function ElectionsPage() {
@@ -274,7 +275,8 @@ function CreateElectionModal({
         defaultValues: {
             name: '',
             start_date: '',
-            end_date: ''
+            end_date: '',
+            type: 'general'
         }
     });
 
@@ -347,7 +349,27 @@ function CreateElectionModal({
                                 )}
                             />
                         </div>
-                        
+
+                        <FormField
+                            control={form.control}
+                            name="type"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-white/70">Election Type</FormLabel>
+                                    <FormControl>
+                                        <select
+                                            {...field}
+                                            className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:border-white/40 focus:ring-2 focus:ring-white/20 focus:outline-none"
+                                        >
+                                            <option value="general">General</option>
+                                            <option value="specific">Specific (e.g Final Year Only)</option>
+                                        </select>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
                         <div className="flex gap-3 mt-6">
                             <button
                                 type="button"

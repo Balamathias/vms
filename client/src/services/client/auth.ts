@@ -1,6 +1,7 @@
+import { ChangePasswordCredentials } from '@/@types/db.d';
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Student as User } from "@/@types/db";
-import { getUser, login, logout, updateUser } from "../server/auth";
+import { getUser, login, logout, updateUser, changePassword } from "../server/auth";
 
 export const QUERY_KEYS = {
   get_user: 'get_user',
@@ -8,6 +9,7 @@ export const QUERY_KEYS = {
   get_cookies: 'get_cookies',
   get_profile: 'get_profile',
   register: 'register',
+  change_password: 'change_password',
 }
 
 
@@ -34,4 +36,9 @@ export const useLogout = () => useMutation({
 export const useUpdateUser = () => useMutation({
   mutationFn: (data: Partial<User>) => updateUser(data),
   mutationKey: [QUERY_KEYS.update_user]
+})
+
+export const useChangePassword = () => useMutation({
+  mutationKey: [QUERY_KEYS.change_password],
+  mutationFn: (data: ChangePasswordCredentials) => changePassword(data),
 })

@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 import { useLogin } from '@/services/client/auth'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import Link from 'next/link'
 
 const loginSchema = z.object({
     matricNumber: z
@@ -348,9 +349,9 @@ const LoginPage = () => {
                                 <div className="mt-8 text-center">
                                     <p className="text-xs text-white/50">
                                         Forgot your password?{' '}
-                                        <button className="text-amber-300/90 hover:text-amber-200 underline underline-offset-4 transition-colors">
+                                        <Link href='/change-password' className="text-amber-300/90 hover:text-amber-200 underline underline-offset-4 transition-colors">
                                             Reset here
-                                        </button>
+                                        </Link>
                                     </p>
                                 </div>
                             </div>

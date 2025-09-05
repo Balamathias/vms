@@ -182,7 +182,7 @@ export const useBulkCreatePositions = () => {
 export const useCreateElection = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (data: { name: string; start_date: string; end_date: string }) => 
+        mutationFn: async (data: { name: string; start_date: string; end_date: string, type?: 'general' | 'specific' }) => 
             createElection(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['elections'] });
@@ -208,7 +208,7 @@ export const useUpdateElection = () => {
     return useMutation({
         mutationFn: async ({ electionId, data }: { 
             electionId: string; 
-            data: { name?: string; start_date?: string; end_date?: string } 
+            data: { name?: string; start_date?: string; end_date?: string, type?: 'general' | 'specific' } 
         }) => updateElection(electionId, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['elections'] });

@@ -283,3 +283,11 @@ export interface GlobalSearchResults {
 }
 
 export type GlobalSearchResponse = ApiResponse<GlobalSearchResults>;
+
+// Password reset types
+export interface ChangePasswordCredentials {
+    matric_number: string;
+    old_password: string;
+    new_password: string;
+    date_of_birth: string;
+}
