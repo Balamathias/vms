@@ -4,8 +4,11 @@ from datetime import timedelta
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer as DefaultTokenObtainPairSerializer
 from django.contrib.auth.password_validation import validate_password
+import logging
 
 from .models import Student, Election, Position, Candidate, Vote
+
+logger = logging.getLogger(__name__)
 
 
 class TokenObtainPairSerializer(DefaultTokenObtainPairSerializer):
@@ -227,29 +230,52 @@ class ChangePasswordSerializer(serializers.Serializer):
     date_of_birth = serializers.DateField()
 
     def validate(self, attrs):
-        user = self.context['request'].user
-        if attrs['matric_number'].upper() != user.matric_number:
-            raise serializers.ValidationError("Matric number mismatch.")
+        matric = attrs.get('matric_number', '').upper()
+        attrs['matric_number'] = matric
+        logger.info(f"[CHANGE_PASSWORD] Attempt start matric={matric}")
+
+        user = Student.objects.filter(matric_number=matric).first()
+
+        if not user:
+            logger.warning(f"[CHANGE_PASSWORD] Matric not found matric={matric}")
+            raise serializers.ValidationError("User with this matric number does not exist.")
+        
         if not user.check_password(attrs['old_password']):
+            logger.warning(f"[CHANGE_PASSWORD] Old password mismatch matric={matric}")
             raise serializers.ValidationError("Old password incorrect.")
         if attrs['new_password'] != attrs['confirm_password']:
+            logger.warning(f"[CHANGE_PASSWORD] Password confirmation mismatch matric={matric}")
             raise serializers.ValidationError("Passwords do not match.")
         if not user.date_of_birth:
+            logger.warning(f"[CHANGE_PASSWORD] DOB missing on account matric={matric}")
             raise serializers.ValidationError("Date of birth not set on account.")
         if attrs['date_of_birth'] != user.date_of_birth:
+            logger.warning(f"[CHANGE_PASSWORD] DOB mismatch matric={matric}, UserDOB: {user.date_of_birth}, ProvidedDOB: {attrs['date_of_birth']}")
             raise serializers.ValidationError("Date of birth mismatch.")
-        validate_password(attrs['new_password'], user=user)
+        try:
+            validate_password(attrs['new_password'], user=user)
+        except Exception as e:
+            logger.warning(f"[CHANGE_PASSWORD] Password validation failed matric={matric} reason={str(e)}")
+            raise
+        logger.info(f"[CHANGE_PASSWORD] Validation passed matric={matric}")
         return attrs
 
     def save(self, **kwargs):
-        user = self.context['request'].user
-        validated = getattr(self, 'validated_data', None)
-        if not isinstance(validated, dict):
+        validated = getattr(self, 'validated_data', None) or {}
+        matric = validated.get('matric_number', '').upper()
+        user = Student.objects.filter(matric_number=matric).first()
+        if not user:
+            logger.error(f"[CHANGE_PASSWORD] Save called but user missing matric={matric}")
+            raise serializers.ValidationError("User with this matric number does not exist.")
+        if not isinstance(validated, dict) or not validated:
+            logger.error(f"[CHANGE_PASSWORD] Save without validated_data type dict matric={matric}")
             raise serializers.ValidationError("Cannot save password: serializer data not validated.")
         new_password = validated.get('new_password')
         if not new_password:
+            logger.error(f"[CHANGE_PASSWORD] No new password provided matric={matric}")
             raise serializers.ValidationError("New password not provided.")
         user.set_password(new_password)
         user.has_changed_password = True
         user.save(update_fields=['password', 'has_changed_password'])
+        logger.info(f"[CHANGE_PASSWORD] Password changed successfully matric={matric}")
         return user

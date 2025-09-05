@@ -1224,7 +1224,7 @@ class AdminDashboardView(APIView, ResponseMixin):
 
 
 class ChangePasswordView(APIView, ResponseMixin):
-    permission_classes = [IsAuthenticated]
+    permission_classes = []
 
     def post(self, request, *args, **kwargs):
         serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
