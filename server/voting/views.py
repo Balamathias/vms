@@ -479,6 +479,42 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
         except Exception as e:
             logger.error(f"Analytics failed: {str(e)}")
             return self.response(error={"detail": "Analytics retrieval failed."}, status_code=500)
+
+    @action(detail=False, methods=['get'], url_path='search', permission_classes=[IsAuthenticated])
+    def search(self, request):
+        """Lightweight search for students (for dropdowns). Supports ?q= & ?level= & ?limit= & ?page=."""
+        try:
+            q = request.query_params.get('q', '').strip()
+            level = request.query_params.get('level')
+            page = max(int(request.query_params.get('page', 1)), 1)
+            limit = min(max(int(request.query_params.get('limit', 10)), 1), 50)
+            qs = self.queryset.filter(is_active=True)
+            if level and level.isdigit():
+                qs = qs.filter(level=int(level))
+            if q:
+                qs = qs.filter(Q(full_name__icontains=q) | Q(matric_number__icontains=q))
+            total = qs.count()
+            start = (page - 1) * limit
+            items = qs.order_by('full_name')[start:start+limit]
+            data = [
+                {
+                    'id': s.id,
+                    'label': f"{s.full_name} ({s.matric_number})",
+                    'value': s.id,
+                    'matric_number': s.matric_number,
+                    'level': s.level,
+                    'picture': self.request.build_absolute_uri(s.picture.url) if s.picture else None
+                } for s in items
+            ]
+            return self.response(data={
+                'results': data,
+                'page': page,
+                'total': total,
+                'has_next': start + limit < total
+            })
+        except Exception as e:
+            logger.error(f"Student search failed: {str(e)}")
+            return self.response(error={'detail': 'Search failed.'}, status_code=500)
         
 
 class ElectionViewSet(viewsets.ModelViewSet, ResponseMixin):  # Changed from ReadOnlyModelViewSet
@@ -755,6 +791,42 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
         data = serializer.data
         data['candidate_count'] = instance.get_eligible_candidates().count()
         return self.response(data=data, message="Position details retrieved successfully.")
+
+    @action(detail=False, methods=['get'], url_path='search', permission_classes=[IsAuthenticated])
+    def search(self, request):
+        """Lightweight search for positions (for dropdowns). Supports ?q= & ?election= & ?limit= & ?page=."""
+        try:
+            q = request.query_params.get('q', '').strip()
+            election_id = request.query_params.get('election')
+            page = max(int(request.query_params.get('page', 1)), 1)
+            limit = min(max(int(request.query_params.get('limit', 10)), 1), 50)
+            qs = self.queryset
+            if election_id:
+                qs = qs.filter(election_id=election_id)
+            if q:
+                qs = qs.filter(name__icontains=q)
+            total = qs.count()
+            start = (page - 1) * limit
+            items = qs.order_by('name')[start:start+limit]
+            data = [
+                {
+                    'id': p.id,
+                    'label': p.name,
+                    'value': p.id,
+                    'election_name': p.election.name,
+                    'gender_restriction': p.gender_restriction,
+                    'position_type': p.position_type
+                } for p in items
+            ]
+            return self.response(data={
+                'results': data,
+                'page': page,
+                'total': total,
+                'has_next': start + limit < total
+            })
+        except Exception as e:
+            logger.error(f"Position search failed: {str(e)}")
+            return self.response(error={'detail': 'Search failed.'}, status_code=500)
 
     # ADMIN ONLY ROUTES
     @action(detail=False, methods=['post'], permission_classes=[IsAdminUser])
@@ -1091,145 +1163,185 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
         
 
 class CandidateViewSet(viewsets.ModelViewSet, ResponseMixin):
-    queryset = Candidate.objects.select_related('student', 'position')
+    queryset = Candidate.objects.select_related('student', 'position', 'position__election')
     serializer_class = CandidateSerializer
-    permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        qs = self.queryset
+        request = getattr(self, 'request', None)
+        qp = getattr(request, 'query_params', None) or getattr(request, 'GET', {}) or {}
+        position_id = qp.get('position')
+        election_id = qp.get('election')
+        if position_id:
+            qs = qs.filter(position_id=position_id)
+        if election_id:
+            qs = qs.filter(position__election_id=election_id)
         if self.request.user.is_staff:
-            return self.queryset
-        return self.queryset.filter(student=self.request.user)
+            return qs
+        return qs.filter(student=self.request.user)
 
     def create(self, request, *args, **kwargs):
-        student = request.user
-        position_id = request.data.get("position")
+        position_id = request.data.get('position')
         if not position_id:
             return self.response(error={"detail": "Position is required."}, status_code=400)
-
         try:
             position = Position.objects.get(id=position_id)
-            # Check if student is eligible for this position
-            if student not in position.get_eligible_candidates():
-                gender_msg = ""
-                if position.gender_restriction != 'any':
-                    gender_msg = f" This position is restricted to {position.gender_restriction} candidates only."
-                return self.response(
-                    error={"detail": f"You are not eligible for this position.{gender_msg}"}, 
-                    status_code=400
-                )
         except Position.DoesNotExist:
             return self.response(error={"detail": "Position not found."}, status_code=404)
 
-        if Candidate.objects.filter(student=student, position_id=position_id).exists():
-            return self.response(error={"detail": "Enhancement already exists for this position."}, status_code=400)
+        # Determine student (override if admin passed student_id)
+        target_student = request.user
+        override_id = request.data.get('student_id') or request.data.get('student')
+        if request.user.is_staff and override_id:
+            try:
+                target_student = Student.objects.get(id=override_id)
+            except Student.DoesNotExist:
+                return self.response(error={"detail": "Override student not found."}, status_code=404)
 
-        request.data["student"] = student.id
-        return super().create(request, *args, **kwargs)
+        # Eligibility (admins can override eligibility check if they choose)
+        if not request.user.is_staff and target_student not in position.get_eligible_candidates():
+            msg = "You are not eligible for this position."
+            if position.gender_restriction != 'any':
+                msg += f" Restricted to {position.gender_restriction} candidates."
+            return self.response(error={"detail": msg}, status_code=400)
 
-    def perform_create(self, serializer):
-        serializer.save(student=self.request.user)
+        serializer = self.get_serializer(data=request.data, context={'request': request})
+        try:
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            return self.response(data=serializer.data, message="Candidate profile created.", status_code=201)
+        except ValidationError as e:
+            return self.response(error={"detail": e.detail}, status_code=400)
+        except Exception as e:
+            logger.error(f"Candidate creation failed: {str(e)}")
+            return self.response(error={"detail": "Candidate creation failed."}, status_code=500)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return self.response(data=serializer.data, message="Candidates retrieved successfully.")
 
     def update(self, request, *args, **kwargs):
-        candidate = self.get_object()
-        if candidate.student != request.user and not request.user.is_staff:
-            return self.response(error={"detail": "You can only update your own enhancement."}, status_code=403)
-        return super().update(request, *args, **kwargs)
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        if instance.student != request.user and not request.user.is_staff:
+            return self.response(error={"detail": "You can only update your own candidate profile."}, status_code=403)
+        serializer = self.get_serializer(instance, data=request.data, partial=partial, context={'request': request})
+        try:
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            return self.response(data=serializer.data, message="Candidate profile updated.")
+        except ValidationError as e:
+            return self.response(error={"detail": e.detail}, status_code=400)
+        except Exception as e:
+            logger.error(f"Candidate update failed: {str(e)}")
+            return self.response(error={"detail": "Candidate update failed."}, status_code=500)
 
     def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.student != request.user and not request.user.is_staff:
+            return self.response(error={"detail": "You can only delete your own candidate profile."}, status_code=403)
+        try:
+            if instance.photo:
+                instance.photo.delete(save=False)
+            self.perform_destroy(instance)
+            return self.response(data={}, message="Candidate profile deleted.")
+        except Exception as e:
+            logger.error(f"Candidate delete failed: {str(e)}")
+            return self.response(error={"detail": "Candidate deletion failed."}, status_code=500)
+
+    @action(detail=True, methods=['patch'], url_path='photo', permission_classes=[IsAuthenticated], parser_classes=[MultiPartParser, FormParser])
+    def update_photo(self, request, pk=None):
         candidate = self.get_object()
         if candidate.student != request.user and not request.user.is_staff:
-            return self.response(error={"detail": "You can only delete your own enhancement."}, status_code=403)
-        return super().destroy(request, *args, **kwargs)
+            return self.response(error={"detail": "Not allowed."}, status_code=403)
+        file = request.data.get('photo')
+        remove = str(request.data.get('remove', 'false')).lower() in {'1','true','yes'}
+        if remove:
+            if candidate.photo:
+                candidate.photo.delete(save=False)
+                candidate.photo = None
+                candidate.save(update_fields=['photo'])
+            return self.response(data={}, message="Photo removed.")
+        if not file:
+            return self.response(error={"detail": "No file provided."}, status_code=400)
+        # Reuse serializer validation
+        ser = CandidateSerializer(candidate, data={'photo': file}, partial=True, context={'request': request})
+        try:
+            ser.is_valid(raise_exception=True)
+            ser.save()
+            return self.response(data=ser.data, message="Photo updated.")
+        except ValidationError as e:
+            return self.response(error={"detail": e.detail}, status_code=400)
 
-    @action(detail=False, methods=['get'], url_path='qualified')
+    @action(detail=True, methods=['patch'], url_path='profile')
+    def update_profile(self, request, pk=None):
+        candidate = self.get_object()
+        if candidate.student != request.user and not request.user.is_staff:
+            return self.response(error={"detail": "Not allowed."}, status_code=403)
+        payload = {k: v for k, v in request.data.items() if k in {'bio','alias'} and v is not None}
+        if not payload:
+            return self.response(error={"detail": "No updatable fields provided."}, status_code=400)
+        ser = CandidateSerializer(candidate, data=payload, partial=True, context={'request': request})
+        try:
+            ser.is_valid(raise_exception=True)
+            ser.save()
+            return self.response(data=ser.data, message="Profile updated.")
+        except ValidationError as e:
+            return self.response(error={"detail": e.detail}, status_code=400)
+
+    @action(detail=False, methods=['get'], url_path='qualified', permission_classes=[IsAuthenticated])
     def qualified_candidates(self, request):
         queryset = self.queryset.filter(student__level=500, student__status='active')
-        
-        # Optional gender filter
         gender = request.query_params.get('gender')
-        if gender and gender in ['male', 'female']:
+        if gender and gender in ['male','female']:
             queryset = queryset.filter(student__gender=gender)
-            
         serializer = self.get_serializer(queryset, many=True)
         return self.response(data=serializer.data, message="List of all qualified candidates.")
 
     # ADMIN ONLY ROUTES
     @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
     def moderation_queue(self, request):
-        """
-        Get candidates that need moderation (with incomplete profiles).
-        """
         try:
-            # Candidates with missing bio or photo
-            incomplete_candidates = self.queryset.filter(
-                Q(bio__isnull=True) | Q(bio='') | Q(photo__isnull=True)
-            ).select_related('student', 'position', 'position__election')
-            
-            candidate_data = []
-            for candidate in incomplete_candidates:
-                candidate_data.append({
-                    'id': candidate.id,
-                    'student_name': candidate.student.full_name,
-                    'student_matric': candidate.student.matric_number,
-                    'position': candidate.position.name,
-                    'election': candidate.position.election.name,
-                    'missing_bio': not candidate.bio,
-                    'missing_photo': not candidate.photo,
-                    'created_at': candidate.created_at
+            incomplete = self.queryset.filter(Q(bio__isnull=True) | Q(bio='') | Q(photo__isnull=True))
+            data = []
+            for c in incomplete:
+                data.append({
+                    'id': c.id,
+                    'student_name': c.student.full_name,
+                    'student_matric': c.student.matric_number,
+                    'position': c.position.name,
+                    'election': c.position.election.name,
+                    'missing_bio': not c.bio,
+                    'missing_photo': not c.photo,
+                    'created_at': c.created_at
                 })
-            
-            return self.response(
-                data=candidate_data,
-                message="Moderation queue retrieved successfully."
-            )
-            
+            return self.response(data=data, message="Moderation queue retrieved successfully.")
         except Exception as e:
             logger.error(f"Moderation queue failed: {str(e)}")
             return self.response(error={"detail": "Moderation queue retrieval failed."}, status_code=500)
 
     @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
     def statistics(self, request):
-        """
-        Get candidate statistics across all elections.
-        """
         try:
-            total_candidates = self.queryset.count()
-            
-            # By election
-            by_election = self.queryset.values('position__election__name') \
-                .annotate(count=Count('id')) \
-                .order_by('-count')
-            
-            # By position
-            by_position = self.queryset.values('position__name') \
-                .annotate(count=Count('id')) \
-                .order_by('-count')
-            
-            # By gender
-            by_gender = self.queryset.values('student__gender') \
-                .annotate(count=Count('id'))
-            
-            # Completion rate
-            complete_profiles = self.queryset.filter(
-                bio__isnull=False, photo__isnull=False
-            ).exclude(bio='').count()
-            
-            completion_rate = (complete_profiles / total_candidates * 100) if total_candidates > 0 else 0
-            
-            return self.response(
-                data={
-                    'total_candidates': total_candidates,
-                    'complete_profiles': complete_profiles,
-                    'completion_rate': round(completion_rate, 2),
-                    'distribution': {
-                        'by_election': list(by_election),
-                        'by_position': list(by_position),
-                        'by_gender': list(by_gender)
-                    }
-                },
-                message="Candidate statistics retrieved successfully."
-            )
-            
+            total = self.queryset.count()
+            by_election = self.queryset.values('position__election__name').annotate(count=Count('id')).order_by('-count')
+            by_position = self.queryset.values('position__name').annotate(count=Count('id')).order_by('-count')
+            by_gender = self.queryset.values('student__gender').annotate(count=Count('id'))
+            complete_profiles = self.queryset.filter(bio__isnull=False, photo__isnull=False).exclude(bio='').count()
+            completion_rate = (complete_profiles / total * 100) if total else 0
+            return self.response(data={
+                'total_candidates': total,
+                'complete_profiles': complete_profiles,
+                'completion_rate': round(completion_rate,2),
+                'distribution': {
+                    'by_election': list(by_election),
+                    'by_position': list(by_position),
+                    'by_gender': list(by_gender)
+                }
+            }, message="Candidate statistics retrieved successfully.")
         except Exception as e:
             logger.error(f"Candidate statistics failed: {str(e)}")
             return self.response(error={"detail": "Statistics retrieval failed."}, status_code=500)

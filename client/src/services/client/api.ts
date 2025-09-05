@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from 'sonner';
 import { 
     Position, 
     ElectionPositions, 
@@ -36,6 +37,11 @@ import {
     updateElection,
     deleteElection,
     globalSearch,
+    createCandidate,
+    updateCandidate,
+    updateCandidatePhoto,
+    deleteCandidate,
+    getCandidates
 } from "../server/api";
 
 export const QUERY_KEYS = {
@@ -51,6 +57,7 @@ export const QUERY_KEYS = {
     moderation_queue: 'moderation_queue',
     all_students: 'all_students',
     global_search: 'global_search',
+    candidates: 'candidates',
 }
 
 export const usePositions = () => useQuery({
@@ -232,4 +239,82 @@ export const useGlobalSearch = (query: string) => useQuery({
     queryKey: [QUERY_KEYS.global_search, query],
     queryFn: async () => globalSearch(query),
     enabled: !!query,
+});
+
+// Candidate mutations
+export const useCreateCandidate = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: createCandidate,
+        onSuccess: (res) => {
+            toast.success(res.message || 'Candidate created');
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.candidates] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.moderation_queue] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.candidate_statistics] });
+        },
+        onError: (err: any) => {
+            toast.error(err?.response?.data?.message || 'Failed to create candidate');
+        }
+    });
+};
+
+export const useUpdateCandidate = (id: string) => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: any) => updateCandidate(id, data),
+        onSuccess: (res) => {
+            toast.success(res.message || 'Candidate updated');
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.candidates] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.moderation_queue] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.candidate_statistics] });
+        },
+        onMutate: async (updated) => {
+            await queryClient.cancelQueries({ queryKey: [QUERY_KEYS.candidates] });
+            const prev = queryClient.getQueryData<any>([QUERY_KEYS.candidates]);
+            if (prev?.results) {
+                queryClient.setQueryData([QUERY_KEYS.candidates], {
+                    ...prev,
+                    results: prev.results.map((c: any) => c.id === id ? { ...c, ...updated } : c)
+                });
+            }
+            return { prev };
+        },
+        onError: (_err: any, _vars, ctx) => {
+            if (ctx?.prev) queryClient.setQueryData([QUERY_KEYS.candidates], ctx.prev);
+            toast.error(_err?.response?.data?.message || 'Failed to update candidate');
+        }
+    });
+};
+
+export const useUpdateCandidatePhoto = (id: string) => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ photo, remove }: { photo: File | null; remove?: boolean }) => updateCandidatePhoto(id, photo, remove),
+        onSuccess: () => {
+            toast.success('Photo updated');
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.candidates] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.moderation_queue] });
+        },
+        onError: () => toast.error('Failed to update photo')
+    });
+};
+
+export const useDeleteCandidate = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => deleteCandidate(id),
+        onSuccess: (res) => {
+            toast.success(res.message || 'Candidate deleted');
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.candidates] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.moderation_queue] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.candidate_statistics] });
+    },
+        onError: () => toast.error('Failed to delete candidate')
+    });
+};
+
+// List candidates
+export const useCandidates = (params?: { election?: string; position?: string }) => useQuery({
+    queryKey: [QUERY_KEYS.candidates, params],
+    queryFn: async () => getCandidates(params),
 });

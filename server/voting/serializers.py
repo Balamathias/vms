@@ -39,8 +39,19 @@ class StudentSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        if instance.picture and self.context.get('request'):
-            data['picture'] = self.context['request'].build_absolute_uri(instance.picture.url)
+        request = self.context.get('request')
+        if request:
+            if instance.picture:
+                data['picture'] = request.build_absolute_uri(instance.picture.url)
+            else:
+                candidate = (
+                    Candidate.objects
+                    .filter(student=instance, photo__isnull=False)
+                    .order_by('-updated_at')
+                    .first()
+                )
+                if candidate and candidate.photo:
+                    data['picture'] = request.build_absolute_uri(candidate.photo.url)
         return data
 
 class DynamicCandidateSerializer(serializers.ModelSerializer):
@@ -132,13 +143,82 @@ class CandidateStudentSerializer(serializers.ModelSerializer):
 
 class CandidateSerializer(serializers.ModelSerializer):
     student = CandidateStudentSerializer(read_only=True)
+    position = serializers.PrimaryKeyRelatedField(queryset=Position.objects.all())
+    photo = serializers.ImageField(required=False, allow_null=True)
+    bio = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+    alias = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    student_id = serializers.PrimaryKeyRelatedField(queryset=Student.objects.all(), write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = Candidate
+        fields = [
+            'id', 'student', 'student_id', 'position', 'bio', 'alias', 'photo', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'student', 'created_at', 'updated_at']
+
+    def validate_photo(self, value):
+        if value is None:
+            return value
+        max_mb = 3
+        if value.size > max_mb * 1024 * 1024:
+            raise serializers.ValidationError(f"Image too large. Max {max_mb}MB allowed.")
+        valid_types = {'image/jpeg', 'image/png', 'image/webp'}
+        content_type = getattr(value, 'content_type', None)
+        if content_type and content_type.lower() not in valid_types:
+            raise serializers.ValidationError("Unsupported image type. Use JPEG, PNG or WEBP.")
+        return value
+
+    def validate_alias(self, value):
+        if value:
+            cleaned = value.strip()
+            if len(cleaned) < 2 and cleaned != '':
+                raise serializers.ValidationError("Alias must be at least 2 characters or left blank.")
+            return cleaned
+        return value
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        if request and request.method == 'POST':
+            # Choose student (admin override possible)
+            student = request.user
+            override = attrs.get('student_id')
+            if override and request.user.is_staff:
+                student = override
+            position = attrs.get('position')
+            if position and Candidate.objects.filter(student=student, position=position).exists():
+                raise serializers.ValidationError({"non_field_errors": ["You already have a nomination for this position."]})
+        return attrs
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        student = request.user if request and request.user.is_authenticated else None
+        override = validated_data.pop('student_id', None)
+        if override and request and hasattr(request, 'user') and request.user.is_staff:
+            student = override
+        if not student:
+            raise serializers.ValidationError("Authentication required.")
+        validated_data['student'] = student
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        # Allow removing photo via flag
+        remove_photo = False
+        request = self.context.get('request')
+        if request:
+            remove_photo = str(request.data.get('remove_photo', 'false')).lower() in {'1','true','yes'}
+        if remove_photo and instance.photo:
+            instance.photo.delete(save=False)
+            instance.photo = None
+        return super().update(instance, validated_data)
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        if instance.photo and self.context.get('request'):
-            data['photo'] = self.context['request'].build_absolute_uri(instance.photo.url)
+        request = self.context.get('request')
+        if instance.photo and request:
+            data['photo'] = request.build_absolute_uri(instance.photo.url)
+        # Add helpful denormalized fields for client display
+        data['position_name'] = getattr(instance.position, 'name', None)
+        data['election_name'] = getattr(instance.position.election, 'name', None)
         return data
 
 

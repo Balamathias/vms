@@ -16,7 +16,10 @@ import {
     BulkImportResult,
     BulkPositionCreateData,
     Student,
-    Election
+    Election,
+    Candidate,
+    CandidateFormData,
+    CandidateUpdateFormData
 } from "@/@types/db";
 
 
@@ -477,3 +480,146 @@ export const globalSearch = async (query: string): Promise<StackResponse<{
         };
     }
 }
+
+// Candidate CRUD
+export const createCandidate = async (data: CandidateFormData & { student_id?: string | null }): Promise<StackResponse<Candidate | null>> => {
+    try {
+        const form = new FormData();
+        form.append('position', data.position);
+        if (data.bio !== undefined) form.append('bio', data.bio);
+        if (data.alias !== undefined) form.append('alias', data.alias);
+        if (data.photo) form.append('photo', data.photo);
+    if (data.student_id) form.append('student_id', data.student_id);
+        const { data: response } = await stackbase.post('/candidates/', form, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return response;
+    } catch (error: any) {
+        console.error('Error creating candidate:', error);
+        return {
+            message: error?.response?.error?.detail || 'Failed to create candidate.',
+            error: error?.response?.data,
+            status: error?.response?.status || 500,
+            data: null,
+        };
+    }
+};
+
+export const updateCandidate = async (id: string, data: CandidateUpdateFormData): Promise<StackResponse<Candidate | null>> => {
+    try {
+        const form = new FormData();
+        if (data.bio !== undefined) form.append('bio', data.bio || '');
+        if (data.alias !== undefined) form.append('alias', data.alias || '');
+        if (data.photo !== undefined && data.photo !== null) form.append('photo', data.photo);
+        if (data.remove_photo) form.append('remove_photo', 'true');
+        const { data: response } = await stackbase.patch(`/candidates/${id}/`, form, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return response;
+    } catch (error: any) {
+        console.error('Error updating candidate:', error);
+        return {
+            message: error?.response?.error?.detail || 'Failed to update candidate.',
+            error: error?.response?.data,
+            status: error?.response?.status || 500,
+            data: null,
+        };
+    }
+};
+
+export const updateCandidatePhoto = async (id: string, photo: File | null, remove = false): Promise<StackResponse<Candidate | null>> => {
+    try {
+        const form = new FormData();
+        if (remove) form.append('remove', 'true');
+        if (photo) form.append('photo', photo);
+        const { data } = await stackbase.patch(`/candidates/${id}/photo/`, form, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return data;
+    } catch (error: any) {
+        console.error('Error updating candidate photo:', error);
+        return {
+            message: error?.response?.error?.detail || 'Failed to update candidate photo.',
+            error: error?.response?.data,
+            status: error?.response?.status || 500,
+            data: null,
+        };
+    }
+};
+
+export const deleteCandidate = async (id: string): Promise<StackResponse<Record<string, never> | null>> => {
+    try {
+        const { data } = await stackbase.delete(`/candidates/${id}/`);
+        return data;
+    } catch (error: any) {
+        console.error('Error deleting candidate:', error);
+        return {
+            message: error?.response?.error?.detail || 'Failed to delete candidate.',
+            error: error?.response?.data,
+            status: error?.response?.status || 500,
+            data: null,
+        };
+    }
+};
+
+// Fetch candidates (optional filters: election, position)
+export const getCandidates = async (params?: { election?: string; position?: string; }): Promise<PaginatedStackResponse<Candidate[]>> => {
+    try {
+        const searchParams = new URLSearchParams();
+        if (params?.election) searchParams.append('election', params.election);
+        if (params?.position) searchParams.append('position', params.position);
+        const qs = searchParams.toString();
+        const { data } = await stackbase.get(`/candidates/${qs ? `?${qs}` : ''}`);
+        return data;
+    } catch (error: any) {
+        console.error('Error fetching candidates:', error);
+        return {
+            message: error?.response?.error?.detail || 'Failed to fetch candidates.',
+            error: error?.response?.data,
+            status: error?.response?.status || 500,
+            data: [],
+            count: 0,
+            next: '',
+            previous: '',
+        };
+    }
+};
+
+// Lightweight search endpoints for dropdowns
+export const searchStudents = async (q: string, opts?: { level?: number; page?: number; limit?: number }): Promise<StackResponse<any>> => {
+    try {
+        const params = new URLSearchParams();
+        if (q) params.append('q', q);
+        if (opts?.level) params.append('level', String(opts.level));
+        if (opts?.page) params.append('page', String(opts.page));
+        if (opts?.limit) params.append('limit', String(opts.limit));
+        const { data } = await stackbase.get(`/students/search/${params.toString() ? `?${params.toString()}` : ''}`);
+        return data;
+    } catch (error: any) {
+        return {
+            message: error?.response?.error?.detail || 'Student search failed.',
+            error: error?.response?.data,
+            status: error?.response?.status || 500,
+            data: null,
+        };
+    }
+};
+
+export const searchPositions = async (q: string, opts?: { election?: string; page?: number; limit?: number }): Promise<StackResponse<any>> => {
+    try {
+        const params = new URLSearchParams();
+        if (q) params.append('q', q);
+        if (opts?.election) params.append('election', opts.election);
+        if (opts?.page) params.append('page', String(opts.page));
+        if (opts?.limit) params.append('limit', String(opts.limit));
+        const { data } = await stackbase.get(`/positions/search/${params.toString() ? `?${params.toString()}` : ''}`);
+        return data;
+    } catch (error: any) {
+        return {
+            message: error?.response?.error?.detail || 'Position search failed.',
+            error: error?.response?.data,
+            status: error?.response?.status || 500,
+            data: null,
+        };
+    }
+};

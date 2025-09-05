@@ -225,7 +225,7 @@ const PositionDetailPage = () => {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
                   </div>
                   <img 
-                    src={candidate.picture} 
+                    src={candidate?.photo || candidate.picture} 
                     alt={candidate?.full_name}
                     className={`w-full h-full object-cover object-center transition-transform duration-700 ${hoveredCard===candidate.id ? 'scale-105' : 'scale-100'}`}
                   />
@@ -378,7 +378,7 @@ const PositionDetailPage = () => {
                     >
                       <div className="relative group/image">
                         <img
-                          src={getSelectedCandidateInfo()?.picture}
+                          src={getSelectedCandidateInfo()?.photo || getSelectedCandidateInfo()?.picture}
                           alt={getSelectedCandidateInfo()?.full_name}
                           className="w-16 h-16 rounded-lg object-cover ring-1 ring-white/20"
                         />
@@ -456,7 +456,7 @@ const PositionDetailPage = () => {
                 </button>
                 <div className="rounded-2xl overflow-hidden border border-white/15 bg-black/40">
                   <img
-                    src={fullImageCandidate.picture}
+                    src={fullImageCandidate?.photo || fullImageCandidate?.picture}
                     alt={fullImageCandidate.full_name}
                     className="w-full h-[70vh] object-contain bg-black/50"
                   />

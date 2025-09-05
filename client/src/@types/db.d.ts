@@ -67,6 +67,9 @@ export interface Candidate extends BaseEntity {
     position: string;
     bio?: string;
     photo?: string;
+    alias?: string;
+    position_name?: string;
+    election_name?: string;
 }
 
 export interface DynamicCandidate {
@@ -172,8 +175,20 @@ export interface VoteFormData {
 export interface CandidateFormData {
     position: string;
     bio?: string;
-    photo?: File;
+    alias?: string;
+    photo?: File | null;
+    student_id?: string | null; // admin override
 }
+
+export interface CandidateUpdateFormData {
+    bio?: string;
+    alias?: string;
+    photo?: File | null;
+    remove_photo?: boolean;
+}
+
+export type CandidateResponse = ApiResponse<Candidate>;
+export type CandidatesListResponse = ApiResponse<Candidate[]>;
 
 // Admin specific types
 export interface AdminDashboardData {

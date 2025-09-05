@@ -180,7 +180,7 @@ class Candidate(models.Model):
 
     def __str__(self):
         return f"Enhancement for {self.student.full_name} → {self.position.name}"
-
+    
 
 class Vote(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
