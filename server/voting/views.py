@@ -776,6 +776,87 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
     serializer_class = PositionSerializer
     permission_classes = [AllowAny]
 
+    def list(self, request, *args, **kwargs):
+        """Server-side filtered & paginated positions list.
+        Supports query params:
+          q: case-insensitive search on name
+          election: election UUID filter
+          position_type: senior|junior
+          gender_restriction: any|male|female
+          ordering: one of name,-name,created_at,-created_at,candidate_count,-candidate_count,vote_count,-vote_count
+          page (default 1)
+          page_size (default 30, max 100)
+        """
+        qp = request.query_params
+        qs = self.queryset.select_related('election')
+        q = qp.get('q', '').strip()
+        election_id = qp.get('election')
+        position_type = qp.get('position_type')
+        gender_restriction = qp.get('gender_restriction')
+        if election_id:
+            qs = qs.filter(election_id=election_id)
+        if position_type in {'senior','junior'}:
+            qs = qs.filter(position_type=position_type)
+        if gender_restriction in {'any','male','female'}:
+            qs = qs.filter(gender_restriction=gender_restriction)
+        if q:
+            qs = qs.filter(name__icontains=q)
+
+        # Annotate counts once (cheap aggregation vs N+1 in serializer)
+        qs = qs.annotate(
+            agg_candidate_count=Count('candidates', distinct=True),
+            agg_vote_count=Count('votes', distinct=True)
+        )
+
+        ordering = qp.get('ordering', 'name')
+        allowed = {'name','-name','created_at','-created_at','candidate_count','-candidate_count','vote_count','-vote_count'}
+        if ordering not in allowed:
+            ordering = 'name'
+        # Map virtual ordering fields to annotations
+        order_map = {
+            'candidate_count': 'agg_candidate_count',
+            '-candidate_count': '-agg_candidate_count',
+            'vote_count': 'agg_vote_count',
+            '-vote_count': '-agg_vote_count'
+        }
+        ordering_actual = order_map.get(ordering, ordering)
+        qs = qs.order_by(ordering_actual, 'id')  # stable secondary ordering
+
+        # Pagination
+        try:
+            page = max(int(qp.get('page', 1)), 1)
+        except ValueError:
+            page = 1
+        try:
+            page_size = int(qp.get('page_size', 30))
+        except ValueError:
+            page_size = 30
+        page_size = max(1, min(page_size, 100))
+        total = qs.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        items = list(qs[start:end])
+
+        serializer = self.get_serializer(items, many=True)
+
+        base_url = request.build_absolute_uri(request.path)
+        def build_url(p):
+            if p < 1 or (p-1)*page_size >= total:
+                return None
+            params = request.GET.copy()
+            params['page'] = str(p)
+            return f"{base_url}?{params.urlencode()}"
+        next_url = build_url(page + 1)
+        prev_url = build_url(page - 1) if page > 1 else None
+
+        return self.response(
+            data=serializer.data,
+            message="Positions retrieved successfully.",
+            count=total,
+            next=next_url,
+            previous=prev_url
+        )
+
     @action(detail=True, methods=['get'], url_path='candidates')
     def candidates(self, request, pk=None):
         position = self.get_object()

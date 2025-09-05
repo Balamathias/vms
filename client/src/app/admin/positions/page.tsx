@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { getPositions, getElections, bulkCreatePositions } from '@/services/server/api';
@@ -22,11 +22,24 @@ export default function PositionsPage() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [selectedElection, setSelectedElection] = useState<string>('');
     const [selectedPositionType, setSelectedPositionType] = useState<string>('');
+    const [genderRestriction, setGenderRestriction] = useState<string>('');
+    const [search, setSearch] = useState<string>('');
+    const [ordering, setOrdering] = useState<string>('name');
+    const [page, setPage] = useState<number>(1);
+    const [pageSize, setPageSize] = useState<number>(30);
     const queryClient = useQueryClient();
 
-    const { data: positionsData, isLoading: positionsLoading } = useQuery({
-        queryKey: ['positions'],
-        queryFn: () => getPositions()
+    const { data: positionsData, isLoading: positionsLoading, isFetching: positionsFetching } = useQuery<import("@/@types/generics").PaginatedStackResponse<Position[]>>({
+        queryKey: ['positions', { selectedElection, selectedPositionType, genderRestriction, search, ordering, page, pageSize }],
+        queryFn: () => getPositions({
+            election: selectedElection && selectedElection !== 'any' ? selectedElection : undefined,
+            position_type: selectedPositionType && selectedPositionType !== 'any' ? (selectedPositionType as 'senior' | 'junior') : undefined,
+            gender_restriction: genderRestriction && genderRestriction !== 'any' ? (genderRestriction as 'any' | 'male' | 'female') : undefined,
+            q: search || undefined,
+            ordering: ordering,
+            page,
+            page_size: pageSize,
+        })
     });
 
     const { data: electionsData } = useQuery({
@@ -63,15 +76,10 @@ export default function PositionsPage() {
         }
     });
 
-    const filteredPositions = positionsData?.results?.filter(position => {
-        if (selectedElection && selectedElection !== 'any' && position.election !== selectedElection) {
-            return false;
-        }
-        if (selectedPositionType && selectedPositionType !== 'any' && position.position_type !== selectedPositionType) {
-            return false;
-        }
-        return true;
-    });
+    const positions: Position[] = positionsData?.data ?? [];
+    const total: number = positionsData?.count ?? 0;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    useEffect(()=>{ if(page>totalPages) setPage(totalPages); },[totalPages,page]);
 
     return (
         <div className="space-y-6">
@@ -97,10 +105,10 @@ export default function PositionsPage() {
                         <Filter className="h-4 w-4 text-white/70" />
                         <span className="text-white/70 text-sm">Filters:</span>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
                         <div className="flex flex-col gap-2">
                             <span className="text-white/70 text-xs">Election:</span>
-                            <Select value={selectedElection} onValueChange={setSelectedElection}>
+                <Select value={selectedElection} onValueChange={(v)=>{ setSelectedElection(v); setPage(1); }}>
                                 <SelectTrigger className="w-full sm:w-48 bg-white/10 border-white/20 text-white focus:border-white/40 focus:ring-white/20">
                                     <SelectValue placeholder="All Elections" />
                                 </SelectTrigger>
@@ -118,7 +126,7 @@ export default function PositionsPage() {
                         </div>
                         <div className="flex flex-col gap-2">
                             <span className="text-white/70 text-xs">Position Type:</span>
-                            <Select value={selectedPositionType} onValueChange={setSelectedPositionType}>
+                            <Select value={selectedPositionType} onValueChange={(v)=>{ setSelectedPositionType(v); setPage(1); }}>
                                 <SelectTrigger className="w-full sm:w-48 bg-white/10 border-white/20 text-white focus:border-white/40 focus:ring-white/20">
                                     <SelectValue placeholder="All Types" />
                                 </SelectTrigger>
@@ -141,9 +149,55 @@ export default function PositionsPage() {
                                 </SelectContent>
                             </Select>
                         </div>
+                        <div className="flex flex-col gap-2">
+                            <span className="text-white/70 text-xs">Gender Restriction:</span>
+                            <Select value={genderRestriction} onValueChange={(v)=>{ setGenderRestriction(v); setPage(1); }}>
+                                <SelectTrigger className="w-full sm:w-40 bg-white/10 border-white/20 text-white focus:border-white/40 focus:ring-white/20">
+                                    <SelectValue placeholder="All" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white/10 backdrop-blur-xl border-white/20 text-white">
+                                    <SelectItem value='any' className="text-white hover:bg-white/20">All</SelectItem>
+                                    <SelectItem value='male' className="text-white hover:bg-white/20">Male Only</SelectItem>
+                                    <SelectItem value='female' className="text-white hover:bg-white/20">Female Only</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <span className="text-white/70 text-xs">Ordering:</span>
+                            <Select value={ordering} onValueChange={(v)=>{ setOrdering(v); setPage(1); }}>
+                                <SelectTrigger className="w-full sm:w-44 bg-white/10 border-white/20 text-white focus:border-white/40 focus:ring-white/20">
+                                    <SelectValue placeholder="Order" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white/10 backdrop-blur-xl border-white/20 text-white">
+                                    <SelectItem value='name' className="text-white hover:bg-white/20">Name A-Z</SelectItem>
+                                    <SelectItem value='-name' className="text-white hover:bg-white/20">Name Z-A</SelectItem>
+                                    <SelectItem value='-created_at' className="text-white hover:bg-white/20">Newest</SelectItem>
+                                    <SelectItem value='created_at' className="text-white hover:bg-white/20">Oldest</SelectItem>
+                                    <SelectItem value='-candidate_count' className="text-white hover:bg-white/20">Most Candidates</SelectItem>
+                                    <SelectItem value='candidate_count' className="text-white hover:bg-white/20">Fewest Candidates</SelectItem>
+                                    <SelectItem value='-vote_count' className="text-white hover:bg-white/20">Most Votes</SelectItem>
+                                    <SelectItem value='vote_count' className="text-white hover:bg-white/20">Fewest Votes</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <span className="text-white/70 text-xs">Search:</span>
+                            <input value={search} onChange={(e)=>{ setSearch(e.target.value); setPage(1); }} placeholder="Search name..." className="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
                     </div>
-                    <div className="sm:ml-auto text-white/70 text-sm text-center sm:text-left">
-                        {filteredPositions?.length || 0} positions found
+                    <div className="sm:ml-auto text-white/70 text-sm text-center sm:text-left flex flex-col items-start sm:items-end gap-1">
+                        <span>{total} positions found</span>
+                        <div className="flex items-center gap-2 text-xs">
+                            <select value={pageSize} onChange={(e)=>{ setPageSize(Number(e.target.value)); setPage(1); }} className="bg-white/10 border border-white/20 rounded px-2 py-1 text-white/70">
+                                {[15,30,60,100].map(s=> <option key={s} value={s}>{s}/page</option>)}
+                            </select>
+                            <div className="flex gap-1">
+                                <button disabled={page===1} onClick={()=>setPage(p=>p-1)} className="px-2 py-1 rounded bg-white/10 disabled:opacity-40">Prev</button>
+                                <span className="px-1">{page}/{totalPages}</span>
+                                <button disabled={page===totalPages || !positionsData?.next} onClick={()=>setPage(p=>p+1)} className="px-2 py-1 rounded bg-white/10 disabled:opacity-40">Next</button>
+                            </div>
+                        </div>
+                        {positionsFetching && <span className="text-[10px] text-white/40">Updating...</span>}
                     </div>
                 </div>
             </div>
@@ -154,9 +208,13 @@ export default function PositionsPage() {
                     Array.from({ length: 6 }).map((_, i) => (
                         <div key={i} className="h-48 rounded-2xl bg-white/5 border border-white/20 animate-pulse" />
                     ))
-                ) : filteredPositions?.map((position) => (
-                    <PositionCard key={position.id} position={position} />
-                ))}
+                ) : positions.length ? (
+                    positions.map((position: any) => (
+                        <PositionCard key={position.id} position={position} />
+                    ))
+                ) : (
+                    <div className="col-span-full py-16 text-center text-white/40 text-sm">No positions found matching filters.</div>
+                )}
             </div>
 
             {/* Create Positions Modal */}

@@ -23,22 +23,38 @@ import {
 } from "@/@types/db";
 
 
-export const getPositions = async (): Promise<PaginatedStackResponse<Position[]>> => {
-  try {
-    const { data } = await stackbase.get("/positions/");
-    return data;
-  } catch (error: any) {
-    console.error("Error fetching positions:", error);
-    return {
-      message: error?.response?.error?.detail || "An error occurred while fetching positions.",
-      error: error?.response?.data,
-        status: error?.response?.status || 500,
-        data: [],
-        count: 0,
-        next: '',
-        previous: '',
-    };
-  }
+export const getPositions = async (params?: {
+    q?: string;
+    election?: string;
+    position_type?: 'senior' | 'junior';
+    gender_restriction?: 'any' | 'male' | 'female';
+    ordering?: string;
+    page?: number;
+    page_size?: number;
+}): Promise<PaginatedStackResponse<Position[]>> => {
+    try {
+        const searchParams = new URLSearchParams();
+        if (params) {
+            Object.entries(params).forEach(([k, v]) => {
+                if (v !== undefined && v !== null && v !== '') searchParams.append(k, String(v));
+            });
+        }
+        const qs = searchParams.toString();
+        const url = `/positions/${qs ? `?${qs}` : ''}`;
+        const { data } = await stackbase.get(url);
+        return data;
+    } catch (error: any) {
+        console.error("Error fetching positions:", error);
+        return {
+            message: error?.response?.error?.detail || "An error occurred while fetching positions.",
+            error: error?.response?.data,
+            status: error?.response?.status || 500,
+            data: [],
+            count: 0,
+            next: '',
+            previous: '',
+        };
+    }
 }
 
 export const getPosition = async (positionId: string): Promise<StackResponse<PositionCandidates | null>> => {
