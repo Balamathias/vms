@@ -110,7 +110,7 @@ const Navbar = ({ user }: NavbarProps) => {
                   onClick={handleLogout}
                   disabled={isPending}
                   whileTap={{ scale: 0.92 }}
-                  className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/20 hover:text-red-200 transition-colors"
+                  className="rounded-lg hidden border border-red-400/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/20 hover:text-red-200 transition-colors"
                 >
                   {isPending ? '…' : 'Logout'}
                 </motion.button>

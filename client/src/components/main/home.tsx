@@ -62,7 +62,7 @@ const Home = ({ user, winners }: HomeProps) => {
                     <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-white/70 text-xs sm:text-sm">
                       <div className="flex items-center gap-1"><Star className="w-3 h-3 sm:w-4 sm:h-4" /><span>{user.matric_number}</span></div>
                       <div className="flex items-center gap-1"><Award className="w-3 h-3 sm:w-4 sm:h-4" /><span>{getUserLevel(user.level)}</span></div>
-                      <div className="flex items-center gap-1"><Users className="w-3 h-3 sm:w-4 sm:h-4" /><span className="capitalize">{user.gender}</span></div>
+                      <div className="flex_ items-center gap-1 hidden"><Users className="w-3 h-3 sm:w-4 sm:h-4" /><span className="capitalize">{user.gender}</span></div>
                     </div>
                   </div>
                   <div className="flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-purple-500/30 to-pink-500/30 border border-white/20 backdrop-blur-sm">

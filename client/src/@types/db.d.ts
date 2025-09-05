@@ -54,6 +54,7 @@ export interface Position extends BaseEntity {
 export interface CandidateStudent {
     full_name: string;
     picture?: string;
+    alias?: string;
 }
 
 export interface Candidate extends BaseEntity {
@@ -69,6 +70,7 @@ export interface DynamicCandidate {
     picture?: string;
     bio?: string;
     photo?: string;
+    alias?: string;
 }
 
 // Vote related types
@@ -132,6 +134,7 @@ export interface PositionCandidates extends Position {
         full_name: string;
         picture?: string;
         bio?: string;
+        alias?: string;
         photo?: string;
         vote_count?: number; // Optional, if vote count is needed
     }[];

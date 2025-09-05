@@ -237,6 +237,11 @@ const PositionDetailPage = () => {
                         <span className="inline-flex h-2 w-2 rounded-full bg-amber-400 animate-ping" />
                       )}
                     </h3>
+                    {candidate?.alias && (
+                      <p className="text-xs leading-relaxed line-clamp-3 relative font-normal bg-gradient-to-r from-amber-300 via-orange-400 to-red-400 bg-clip-text text-transparent">
+                      @{candidate.alias}
+                      </p>
+                    )}
                     <div className="mt-1 h-px w-1/3 bg-gradient-to-r from-amber-400 via-orange-500 to-transparent" />
                   </div>
                   {/* Floating ember particles (lightweight) */}
@@ -458,6 +463,9 @@ const PositionDetailPage = () => {
                 </div>
                 <div className="mt-3 text-center">
                   <h3 className="text-white font-semibold text-lg">{fullImageCandidate.full_name}</h3>
+                  {fullImageCandidate?.alias && (
+                    <p className="text-white/50 text-xs mb-2">@{fullImageCandidate.alias}</p>
+                  )}
                   <p className="text-white/50 text-sm max-w-xl mx-auto line-clamp-3">{fullImageCandidate.bio}</p>
                 </div>
               </motion.div>
