@@ -27,6 +27,10 @@ export interface Student extends BaseEntity, TimestampedEntity {
     status: StudentStatus;
     is_active: boolean;
     is_staff: boolean;
+    is_superuser?: boolean;
+    is_verified?: boolean;
+    has_changed_password?: boolean;
+    date_of_birth?: string; // YYYY-MM-DD
     date_joined: string;
 }
 
@@ -36,6 +40,7 @@ export interface Election extends BaseEntity {
     start_date: string;
     end_date: string;
     is_active: boolean;
+    type?: 'general' | 'specific';
     positions: Position[];
 }
 
@@ -146,7 +151,8 @@ export type RecentWinnersResponse = ApiResponse<RecentWinner[]>;
 // API endpoint response types
 export type LoginResponse = ApiResponse<TokenPair>;
 export type RefreshTokenResponse = ApiResponse<{ access: string }>;
-export type LogoutResponse = ApiResponse<{}>;
+// Use Record<string, never> instead of {} to satisfy no-empty-object-type
+export type LogoutResponse = ApiResponse<Record<string, never>>;
 export type CurrentUserResponse = ApiResponse<Student>;
 export type StudentsResponse = ApiResponse<Student[]>;
 export type ElectionsResponse = ApiResponse<Election[]>;
@@ -258,7 +264,10 @@ export interface ModerationCandidate {
 // Bulk import types
 export interface BulkImportResult {
     created_count: number;
+    skipped?: number;
     errors: string[];
+    time_seconds?: number;
+    avg_ms_per_created?: number | null;
 }
 
 export interface BulkPositionCreateData {
@@ -292,5 +301,6 @@ export interface ChangePasswordCredentials {
     matric_number: string;
     old_password: string;
     new_password: string;
-    date_of_birth: string;
+    confirm_password?: string;
+    date_of_birth: string; // YYYY-MM-DD
 }
