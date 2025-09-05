@@ -314,7 +314,7 @@ export const useDeleteCandidate = () => {
 };
 
 // List candidates
-export const useCandidates = (params?: { election?: string; position?: string }) => useQuery({
+export const useCandidates = (params?: { election?: string; position?: string; page?: number; page_size?: number; q?: string; gender?: string; missing_bio?: boolean; missing_photo?: boolean; ordering?: string; }) => useQuery({
     queryKey: [QUERY_KEYS.candidates, params],
     queryFn: async () => getCandidates(params),
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCandidateStatistics, useModerationQueue, useCreateCandidate, useCandidates, useUpdateCandidate, useDeleteCandidate } from '@/services/client/api';
+import { useCandidateStatistics, useModerationQueue, useCreateCandidate, useCandidates, useUpdateCandidate, useDeleteCandidate, useUpdateCandidatePhoto } from '@/services/client/api';
 import { UserCheck, AlertTriangle, Image, FileText, Eye, Edit, Trash2, Plus, Upload, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -13,7 +13,10 @@ interface LocalFormState { position: string; bio: string; alias: string; photo: 
 export default function CandidatesPage() {
     const { data: statistics, isLoading: statsLoading } = useCandidateStatistics();
     const { data: moderationQueue, isLoading: queueLoading } = useModerationQueue();
-    const { data: candidatesList, isLoading: listLoading } = useCandidates();
+    const [filters, setFilters] = React.useState({ q: '', gender: '', missing_bio: false, missing_photo: false, ordering: '-created_at' });
+    const [page, setPage] = React.useState(1);
+    const page_size = 12;
+    const { data: candidatesList, isLoading: listLoading } = useCandidates({ page, page_size, q: filters.q || undefined, gender: filters.gender || undefined, missing_bio: filters.missing_bio || undefined, missing_photo: filters.missing_photo || undefined, ordering: filters.ordering });
 
     return (
         <div className="space-y-6">
@@ -84,27 +87,71 @@ export default function CandidatesPage() {
                 </div>
             </div>
 
-            {/* Candidates Grid */}
+            {/* Candidates Table + Filters */}
             <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/20 p-6">
-                <div className="flex items-center gap-3 mb-6">
-                    <h2 className="text-xl font-semibold text-white">All Candidates</h2>
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-400/30">
-                        {candidatesList?.data?.length || 0}
-                    </span>
+                <div className="flex flex-col gap-4 mb-4 md:flex-row md:items-end md:justify-between">
+                    <div className="space-y-2 flex-1">
+                        <h2 className="text-xl font-semibold text-white flex items-center gap-2">All Candidates
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-400/30">{candidatesList?.count || 0}</span>
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                            <input value={filters.q} onChange={e=>{ setPage(1); setFilters(f=>({...f,q:e.target.value})); }} placeholder="Search name, alias, matric..." className="col-span-2 px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                            <select value={filters.gender} onChange={e=>{ setPage(1); setFilters(f=>({...f,gender:e.target.value})); }} className="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-sm text-white focus:outline-none">
+                                <option value="">All Genders</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                            </select>
+                            <label className="flex items-center gap-2 text-xs text-white/70 bg-white/10 px-3 py-2 rounded-lg border border-white/20">
+                                <input type="checkbox" checked={filters.missing_bio} onChange={e=>{ setPage(1); setFilters(f=>({...f,missing_bio:e.target.checked})); }} /> Missing Bio
+                            </label>
+                            <label className="flex items-center gap-2 text-xs text-white/70 bg-white/10 px-3 py-2 rounded-lg border border-white/20">
+                                <input type="checkbox" checked={filters.missing_photo} onChange={e=>{ setPage(1); setFilters(f=>({...f,missing_photo:e.target.checked})); }} /> Missing Photo
+                            </label>
+                            <select value={filters.ordering} onChange={e=>{ setPage(1); setFilters(f=>({...f,ordering:e.target.value})); }} className="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-sm text-white focus:outline-none">
+                                <option value="-created_at">Newest</option>
+                                <option value="created_at">Oldest</option>
+                                <option value="alias">Alias A-Z</option>
+                                <option value="-alias">Alias Z-A</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
-                {listLoading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-40 rounded-xl bg-white/10 animate-pulse" />)}
+                <div className="overflow-x-auto rounded-lg border border-white/10">
+                    <table className="w-full text-sm">
+                        <thead className="bg-white/10">
+                            <tr className="text-left text-white/60">
+                                <th className="px-4 py-3 font-medium">Candidate</th>
+                                <th className="px-4 py-3 font-medium">Position</th>
+                                <th className="px-4 py-3 font-medium">Election</th>
+                                <th className="px-4 py-3 font-medium">Alias</th>
+                                <th className="px-4 py-3 font-medium">Bio</th>
+                                <th className="px-4 py-3 font-medium">Photo</th>
+                                <th className="px-4 py-3 font-medium">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {listLoading ? (
+                                Array.from({ length: 6 }).map((_,i)=>(<tr key={i} className="border-t border-white/10"><td colSpan={7} className="p-4"><div className="h-4 w-full bg-white/10 animate-pulse rounded" /></td></tr>))
+                            ) : candidatesList?.data?.length ? (
+                                candidatesList.data.map((c:any)=>(<CandidateRow key={c.id} candidate={c} />))
+                            ) : (
+                                <tr><td colSpan={7} className="px-4 py-6 text-center text-white/50">No candidates found.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                <div className="flex items-center justify-between mt-4 text-xs text-white/60">
+                    <div>Page {page} of {Math.max(1, Math.ceil((candidatesList?.count||0)/page_size))}</div>
+                    <div className="flex gap-2">
+                        <button disabled={page===1} onClick={()=>setPage(p=>p-1)} className="px-3 py-1 rounded bg-white/10 disabled:opacity-40">Prev</button>
+                        <button disabled={!candidatesList?.next} onClick={()=>setPage(p=>p+1)} className="px-3 py-1 rounded bg-white/10 disabled:opacity-40">Next</button>
                     </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {candidatesList?.data?.map((c: any) => <CandidateCard key={c.id} candidate={c} />)}
-                    </div>
-                )}
+                </div>
             </div>
 
             {/* Moderation Queue */}
-            <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/20 p-6">
+            <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/20 p-6 hidden">
                 <div className="flex items-center gap-3 mb-6">
                     <AlertTriangle className="h-5 w-5 text-amber-400" />
                     <h2 className="text-xl font-semibold text-white">Moderation Queue</h2>
@@ -296,11 +343,24 @@ const CandidateCard: React.FC<{ candidate: any }> = ({ candidate }) => {
     const [editing, setEditing] = React.useState(false);
     const [alias, setAlias] = React.useState(candidate.alias || '');
     const [bio, setBio] = React.useState(candidate.bio || '');
+    const [newPhoto, setNewPhoto] = React.useState<File | null>(null);
+    const [removePhoto, setRemovePhoto] = React.useState(false);
     const updateMutation = useUpdateCandidate(candidate.id);
     const deleteMutation = useDeleteCandidate();
+    const updatePhotoMutation = useUpdateCandidatePhoto(candidate.id);
+    const fileRef = React.useRef<HTMLInputElement | null>(null);
 
     const save = async () => {
+        // Update text fields
         await updateMutation.mutateAsync({ alias, bio });
+        // Photo operations
+        if (removePhoto) {
+            await updatePhotoMutation.mutateAsync({ photo: null, remove: true });
+        } else if (newPhoto) {
+            await updatePhotoMutation.mutateAsync({ photo: newPhoto });
+        }
+        setNewPhoto(null);
+        setRemovePhoto(false);
         setEditing(false);
     };
     const remove = async () => {
@@ -311,8 +371,41 @@ const CandidateCard: React.FC<{ candidate: any }> = ({ candidate }) => {
     return (
         <div className="rounded-xl bg-white/5 border border-white/20 p-4 space-y-3">
             <div className="flex items-start gap-3">
-                <div className="w-14 h-14 rounded-lg overflow-hidden bg-white/10 flex items-center justify-center">
-                    {candidate.photo ? <img src={candidate.photo} className="object-cover w-full h-full" /> : <span className="text-white/40 text-xs">No Photo</span>}
+                <div className="w-14 h-14 rounded-lg overflow-hidden bg-white/10 flex items-center justify-center relative group">
+                    {removePhoto ? (
+                        <span className="text-white/40 text-[10px]">Will Remove</span>
+                    ) : newPhoto ? (
+                        <img src={URL.createObjectURL(newPhoto)} className="object-cover w-full h-full" />
+                    ) : candidate.photo ? (
+                        <img src={candidate.photo} className="object-cover w-full h-full" />
+                    ) : (
+                        <span className="text-white/40 text-xs">No Photo</span>
+                    )}
+                    {editing && (
+                        <>
+                            {/* Hover overlay (kept) */}
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 transition text-[10px]">
+                                <button onClick={()=>fileRef.current?.click()} className="px-2 py-1 rounded bg-indigo-600 text-white">Change</button>
+                                {(candidate.photo || newPhoto) && !removePhoto && (
+                                    <button onClick={()=>{ setRemovePhoto(true); setNewPhoto(null); }} className="px-2 py-1 rounded bg-red-600/80 text-white">Remove</button>
+                                )}
+                                {removePhoto && (
+                                    <button onClick={()=> setRemovePhoto(false)} className="px-2 py-1 rounded bg-white/20 text-white">Undo</button>
+                                )}
+                            </div>
+                            {/* Always-visible quick button for discoverability (desktop & touch) */}
+                            <div className="absolute -bottom-2 left-1 flex gap-1">
+                                <button onClick={()=>fileRef.current?.click()} className="px-1.5 py-0.5 rounded bg-indigo-600 text-[10px] leading-none text-white shadow">Photo</button>
+                                {(candidate.photo || newPhoto) && !removePhoto && (
+                                    <button onClick={()=>{ setRemovePhoto(true); setNewPhoto(null); }} className="px-1.5 py-0.5 rounded bg-red-600/80 text-[10px] leading-none text-white">X</button>
+                                )}
+                                {removePhoto && (
+                                    <button onClick={()=> setRemovePhoto(false)} className="px-1.5 py-0.5 rounded bg-white/20 text-[10px] leading-none text-white">Undo</button>
+                                )}
+                            </div>
+                        </>
+                    )}
+                    <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e=>{ const f=e.target.files?.[0]; if(f){ setNewPhoto(f); setRemovePhoto(false);} }} />
                 </div>
                 <div className="flex-1">
                     <div className="font-semibold text-white text-sm leading-tight">{candidate.student.full_name}</div>
@@ -329,8 +422,8 @@ const CandidateCard: React.FC<{ candidate: any }> = ({ candidate }) => {
                     <input value={alias} onChange={e=>setAlias(e.target.value)} placeholder="Alias" className="w-full px-2 py-1 text-sm rounded bg-white/10 border border-white/20 focus:outline-none" />
                     <textarea value={bio} onChange={e=>setBio(e.target.value)} rows={3} placeholder="Bio" className="w-full px-2 py-1 text-sm rounded bg-white/10 border border-white/20 focus:outline-none resize-none" />
                     <div className="flex gap-2">
-                        <button onClick={()=>setEditing(false)} className="flex-1 px-3 py-1 rounded bg-white/10 text-xs">Cancel</button>
-                        <button disabled={updateMutation.isPending} onClick={save} className="flex-1 px-3 py-1 rounded bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-xs disabled:opacity-50">{updateMutation.isPending ? 'Saving...' : 'Save'}</button>
+                        <button onClick={()=>{ setEditing(false); setNewPhoto(null); setRemovePhoto(false); }} className="flex-1 px-3 py-1 rounded bg-white/10 text-xs">Cancel</button>
+                        <button disabled={updateMutation.isPending || updatePhotoMutation.isPending} onClick={save} className="flex-1 px-3 py-1 rounded bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-xs disabled:opacity-50">{(updateMutation.isPending || updatePhotoMutation.isPending) ? 'Saving...' : 'Save'}</button>
                     </div>
                 </div>
             ) : candidate.bio ? (
@@ -339,5 +432,102 @@ const CandidateCard: React.FC<{ candidate: any }> = ({ candidate }) => {
                 <p className="text-xs text-white/30 italic">No bio</p>
             )}
         </div>
+    );
+};
+
+// Table row variant
+const CandidateRow: React.FC<{ candidate: any }> = ({ candidate }) => {
+    const [editing, setEditing] = React.useState(false);
+    const [alias, setAlias] = React.useState(candidate.alias || '');
+    const [bio, setBio] = React.useState(candidate.bio || '');
+    const [newPhoto, setNewPhoto] = React.useState<File | null>(null);
+    const [removePhoto, setRemovePhoto] = React.useState(false);
+    const updateMutation = useUpdateCandidate(candidate.id);
+    const deleteMutation = useDeleteCandidate();
+    const updatePhotoMutation = useUpdateCandidatePhoto(candidate.id);
+    const fileRef = React.useRef<HTMLInputElement | null>(null);
+    const save = async () => { 
+        await updateMutation.mutateAsync({ alias, bio }); 
+        if (removePhoto) {
+            await updatePhotoMutation.mutateAsync({ photo: null, remove: true });
+        } else if (newPhoto) {
+            await updatePhotoMutation.mutateAsync({ photo: newPhoto });
+        }
+        setNewPhoto(null); setRemovePhoto(false); setEditing(false); };
+    const remove = async () => { if (confirm('Delete candidate?')) await deleteMutation.mutateAsync(candidate.id); };
+    return (
+        <tr className="border-t border-white/10 hover:bg-white/5">
+            <td className="px-4 py-3 text-white align-top">
+                <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/10 flex items-center justify-center relative group">
+                        {removePhoto ? (
+                            <span className="text-[9px] text-white/40 text-center px-1">Will Remove</span>
+                        ) : newPhoto ? (
+                            <img src={URL.createObjectURL(newPhoto)} className="object-cover w-full h-full" />
+                        ) : candidate.photo ? (
+                            <img src={candidate.photo} className="object-cover w-full h-full" />
+                        ) : (
+                            <span className="text-[10px] text-white/40">No Photo</span>
+                        )}
+                        {editing && (
+                            <>
+                                {/* Hover overlay (legacy) */}
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 transition text-[9px]">
+                                    <button onClick={()=>fileRef.current?.click()} className="px-1.5 py-0.5 rounded bg-indigo-600 text-white">Change</button>
+                                    {(candidate.photo || newPhoto) && !removePhoto && (
+                                        <button onClick={()=>{ setRemovePhoto(true); setNewPhoto(null); }} className="px-1.5 py-0.5 rounded bg-red-600/80 text-white">Remove</button>
+                                    )}
+                                    {removePhoto && (
+                                        <button onClick={()=> setRemovePhoto(false)} className="px-1.5 py-0.5 rounded bg-white/20 text-white">Undo</button>
+                                    )}
+                                </div>
+                                {/* Always visible mini controls */}
+                                <div className="absolute -bottom-2 left-0 flex gap-1">
+                                    <button onClick={()=>fileRef.current?.click()} className="px-1.5 py-0.5 rounded bg-indigo-600 text-white text-[9px] leading-none shadow">Photo</button>
+                                    {(candidate.photo || newPhoto) && !removePhoto && (
+                                        <button onClick={()=>{ setRemovePhoto(true); setNewPhoto(null); }} className="px-1.5 py-0.5 rounded bg-red-600/80 text-white text-[9px] leading-none">X</button>
+                                    )}
+                                    {removePhoto && (
+                                        <button onClick={()=> setRemovePhoto(false)} className="px-1.5 py-0.5 rounded bg-white/20 text-white text-[9px] leading-none">Undo</button>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e=>{ const f=e.target.files?.[0]; if(f){ setNewPhoto(f); setRemovePhoto(false);} }} />
+                    </div>
+                    <div>
+                        <div className="font-medium text-sm leading-tight">{candidate.student.full_name}</div>
+                        <div className="text-[11px] text-white/40">{candidate.student.matric_number || ''}</div>
+                        <div className="text-[10px] text-white/30">{candidate.student.gender}</div>
+                    </div>
+                </div>
+            </td>
+            <td className="px-4 py-3 text-white/70 text-xs">{candidate.position_name}</td>
+            <td className="px-4 py-3 text-white/50 text-xs">{candidate.election_name}</td>
+            <td className="px-4 py-3 text-white/60 text-xs">
+                {editing ? <input value={alias} onChange={e=>setAlias(e.target.value)} className="w-28 px-2 py-1 rounded bg-white/10 border border-white/20 text-xs" /> : (alias || <span className="text-white/30 italic">None</span>)}
+            </td>
+            <td className="px-4 py-3 text-white/60 text-xs max-w-xs">
+                {editing ? <textarea value={bio} onChange={e=>setBio(e.target.value)} rows={3} className="w-full px-2 py-1 rounded bg-white/10 border border-white/20 text-xs resize-none" /> : (bio ? <span className="line-clamp-3 inline-block">{bio}</span> : <span className="text-white/30 italic">None</span>)}
+            </td>
+            <td className="px-4 py-3 text-xs">
+                <span className={cn('px-2 py-1 rounded border text-[10px]', (removePhoto ? false : (newPhoto || candidate.photo)) ? 'bg-green-500/20 border-green-400/30 text-green-400' : 'bg-red-500/20 border-red-400/30 text-red-400')}>{(removePhoto ? false : (newPhoto || candidate.photo)) ? 'Yes' : 'No'}</span>
+            </td>
+            <td className="px-4 py-3">
+                <div className="flex gap-2">
+            {editing ? (
+                        <>
+                <button onClick={()=>{ setEditing(false); setNewPhoto(null); setRemovePhoto(false); }} className="px-2 py-1 rounded bg-white/10 text-[10px] text-white/70">Cancel</button>
+                <button disabled={updateMutation.isPending || updatePhotoMutation.isPending} onClick={save} className="px-2 py-1 rounded bg-gradient-to-r from-indigo-500 to-purple-600 text-[10px] text-white disabled:opacity-50">{(updateMutation.isPending || updatePhotoMutation.isPending) ? 'Saving' : 'Save'}</button>
+                        </>
+                    ) : (
+                        <>
+                            <button onClick={()=>setEditing(true)} className="p-2 rounded bg-amber-500/20 border border-amber-400/30 text-amber-400 hover:bg-amber-500/30"><Edit className="h-3 w-3" /></button>
+                            <button onClick={remove} className="p-2 rounded bg-red-500/20 border border-red-400/30 text-red-400 hover:bg-red-500/30"><Trash2 className="h-3 w-3" /></button>
+                        </>
+                    )}
+                </div>
+            </td>
+        </tr>
     );
 };

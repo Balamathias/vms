@@ -1220,8 +1220,64 @@ class CandidateViewSet(viewsets.ModelViewSet, ResponseMixin):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return self.response(data=serializer.data, message="Candidates retrieved successfully.")
+        qp = request.query_params
+        # Filters
+        q = qp.get('q', '').strip()
+        missing_bio = qp.get('missing_bio') in {'1','true','yes'}
+        missing_photo = qp.get('missing_photo') in {'1','true','yes'}
+        gender = qp.get('gender')
+        if q:
+            queryset = queryset.filter(
+                Q(student__full_name__icontains=q) | Q(alias__icontains=q) | Q(student__matric_number__icontains=q)
+            )
+        if gender in {'male','female','other'}:
+            queryset = queryset.filter(student__gender=gender)
+        if missing_bio:
+            queryset = queryset.filter(Q(bio__isnull=True) | Q(bio=""))
+        if missing_photo:
+            queryset = queryset.filter(photo__isnull=True)
+
+        # Ordering (default created_at desc)
+        ordering = qp.get('ordering', '-created_at')
+        allowed_order = {'created_at','-created_at','alias','-alias'}
+        if ordering not in allowed_order:
+            ordering = '-created_at'
+        queryset = queryset.order_by(ordering)
+
+        # Pagination
+        try:
+            page = max(int(qp.get('page', 1)), 1)
+        except ValueError:
+            page = 1
+        try:
+            page_size = int(qp.get('page_size', 20))
+        except ValueError:
+            page_size = 20
+        page_size = max(1, min(page_size, 100))
+        total = queryset.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        items = queryset[start:end]
+        serializer = self.get_serializer(items, many=True)
+
+        # Build next / previous links
+        base_url = request.build_absolute_uri(request.path)
+        def build_url(p):
+            if p < 1 or (p-1)*page_size >= total:
+                return None
+            params = request.GET.copy()
+            params['page'] = str(p)
+            return f"{base_url}?{params.urlencode()}"
+        next_url = build_url(page + 1)
+        prev_url = build_url(page - 1) if page > 1 else None
+
+        return self.response(
+            data=serializer.data,
+            message="Candidates retrieved successfully.",
+            count=total,
+            next=next_url,
+            previous=prev_url
+        )
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)

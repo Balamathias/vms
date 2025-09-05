@@ -563,11 +563,18 @@ export const deleteCandidate = async (id: string): Promise<StackResponse<Record<
 };
 
 // Fetch candidates (optional filters: election, position)
-export const getCandidates = async (params?: { election?: string; position?: string; }): Promise<PaginatedStackResponse<Candidate[]>> => {
+export const getCandidates = async (params?: { election?: string; position?: string; page?: number; page_size?: number; q?: string; gender?: string; missing_bio?: boolean; missing_photo?: boolean; ordering?: string; }): Promise<PaginatedStackResponse<Candidate[]>> => {
     try {
         const searchParams = new URLSearchParams();
         if (params?.election) searchParams.append('election', params.election);
         if (params?.position) searchParams.append('position', params.position);
+    if (params?.page) searchParams.append('page', String(params.page));
+    if (params?.page_size) searchParams.append('page_size', String(params.page_size));
+    if (params?.q) searchParams.append('q', params.q);
+    if (params?.gender) searchParams.append('gender', params.gender);
+    if (params?.missing_bio) searchParams.append('missing_bio', 'true');
+    if (params?.missing_photo) searchParams.append('missing_photo', 'true');
+    if (params?.ordering) searchParams.append('ordering', params.ordering);
         const qs = searchParams.toString();
         const { data } = await stackbase.get(`/candidates/${qs ? `?${qs}` : ''}`);
         return data;
