@@ -52,6 +52,8 @@ class Student(AbstractBaseUser, PermissionsMixin):
     level = models.IntegerField(choices=LEVEL_CHOICES)
     state_of_origin = models.CharField(max_length=50)
 
+    date_of_birth = models.DateField(blank=True, null=True)
+
     email = models.EmailField(unique=True, blank=True, null=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     picture = models.ImageField(upload_to='students/', blank=True, null=True)
@@ -65,7 +67,7 @@ class Student(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
 
     is_verified = models.BooleanField(default=False, help_text="Indicates if the student has verified their account")
-    is_nominated = models.BooleanField(default=False, help_text="Indicates if the student has been nominated for a position")
+    has_changed_password = models.BooleanField(default=False, help_text="Indicates if the student has changed password at least once")
 
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
     failed_login_attempts = models.PositiveIntegerField(default=0)
@@ -86,15 +88,21 @@ class Student(AbstractBaseUser, PermissionsMixin):
 
     @property
     def is_candidate(self):
-        return self.is_nominated and self.status == 'active'
+        # Backward compatibility: any active nomination
+        return self.status == 'active' and Candidate.objects.filter(student=self).exists()
 
 
 class Election(models.Model):
+    TYPE_CHOICES = [
+        ('general', 'General'),
+        ('specific', 'Specific'),  # (final year only voters)
+    ]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255, help_text="e.g., 'Graduating Class Awards 2024'")
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
     is_active = models.BooleanField(default=False)
+    type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='general')  # NEW
 
     def __str__(self):
         return self.name
@@ -140,20 +148,21 @@ class Position(models.Model):
         return f"{self.name} ({self.election.name})"
 
     def get_eligible_candidates(self):
-        """Get students eligible for this position based on level, status, and gender"""
-        queryset = Student.objects.filter(is_nominated=True, status='active')
-        if self.gender_restriction != 'any':
-            queryset = queryset.filter(gender=self.gender_restriction)
-        if self.position_type == 'junior':
-            queryset = queryset.filter(level__in=[100, 200, 300, 400])
-        if self.position_type == 'senior':
-            queryset = queryset.filter(level__in=[500])
-        return queryset
+        """
+        Return nominated (Candidate) students for this position (active only).
+        Previously used Student.is_nominated + level/gender logic.
+        Election-level voting restrictions are now enforced during vote validation,
+        not here, to keep returned candidate list consistent for all voters.
+        """
+        return Student.objects.filter(
+            candidate__position=self,
+            status='active'
+        ).distinct()
 
 
 class Candidate(models.Model):
     """
-    Candidate data for 500L students in a specific position.
+    Nomination record for a student in a specific position.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
@@ -190,8 +199,10 @@ class Vote(models.Model):
         return f"Vote by {self.voter.matric_number} → {self.student_voted_for.full_name} ({self.position.name})"
 
     def clean(self):
-        if not self.student_voted_for.is_candidate:
-            raise ValidationError("You can only vote for active and Qualified students.")
+        # Ensure the voted-for student is nominated for that position
+        if not Candidate.objects.filter(student=self.student_voted_for, position=self.position).exists():
+            raise ValidationError("Student is not a nominated candidate for this position.")
+
 
 class IPRestriction(models.Model):
     ip_address = models.GenericIPAddressField(unique=True)

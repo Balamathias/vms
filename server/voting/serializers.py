@@ -3,6 +3,7 @@ from django.core.cache import cache
 from datetime import timedelta
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer as DefaultTokenObtainPairSerializer
+from django.contrib.auth.password_validation import validate_password
 
 from .models import Student, Election, Position, Candidate, Vote
 
@@ -13,6 +14,7 @@ class TokenObtainPairSerializer(DefaultTokenObtainPairSerializer):
         token = super().get_token(user)
         token['matric_number'] = user.matric_number
         token['full_name'] = user.full_name
+        token['has_changed_password'] = user.has_changed_password
         return token
 
     def validate(self, attrs):        
@@ -25,11 +27,12 @@ class StudentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = [
-            'id', 'matric_number', 'full_name', 'level', 'state_of_origin', 
-            'email', 'phone_number', 'picture', 'status', 'is_active', 'date_joined',
-            'is_staff', 'is_superuser', 'is_verified', 'is_nominated'
+            'id', 'matric_number', 'full_name', 'level', 'state_of_origin',
+            'date_of_birth', 'email', 'phone_number', 'picture', 'status',
+            'is_active', 'date_joined', 'is_staff', 'is_superuser',
+            'is_verified', 'has_changed_password'
         ]
-        read_only_fields = ['is_active', 'date_joined', 'is_staff', 'is_superuser', 'is_verified', 'is_nominated']
+        read_only_fields = ['is_active', 'date_joined', 'is_staff', 'is_superuser', 'is_verified', 'has_changed_password']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -84,7 +87,7 @@ class PositionSerializer(serializers.ModelSerializer):
         return position.votes.count()
 
     def get_candidates(self, position):
-        # Only return candidates when fetching position detail (single instance)
+        # Only return nominated students when retrieving a single position
         if self.context.get('view') and hasattr(self.context['view'], 'action'):
             if self.context['view'].action == 'retrieve':
                 students = position.get_eligible_candidates()
@@ -105,13 +108,13 @@ class ActiveElectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Election
-        fields = ['id', 'name', 'start_date', 'end_date', 'positions', 'is_active']
+        fields = ['id', 'name', 'start_date', 'end_date', 'positions', 'is_active', 'type']  # added type
 
 
 class CandidateStudentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
-        fields = ['full_name', 'picture']
+        fields = ['full_name', 'picture', 'date_of_birth']  # include if needed (or remove date_of_birth if sensitive)
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -144,6 +147,7 @@ class VoteSerializer(serializers.ModelSerializer):
         if 'data' in kwargs and 'position' in kwargs['data']:
             try:
                 position = Position.objects.get(id=kwargs['data']['position'])
+                # restrict to nominated students (via method)
                 self.fields['student_voted_for'].queryset = position.get_eligible_candidates()
             except Position.DoesNotExist:
                 pass
@@ -153,20 +157,27 @@ class VoteSerializer(serializers.ModelSerializer):
         candidate = data.get('student_voted_for')
         request = self.context.get('request')
 
+        # Election window
         if not position.election.is_active or not (position.election.start_date <= timezone.now() <= position.election.end_date):
             raise serializers.ValidationError("This election is not currently active.")
 
+        # Voter already voted for this position
         if request and Vote.objects.filter(voter=request.user, position=position).exists():
             raise serializers.ValidationError("You have already voted for this position.")
 
-        eligible_candidates = position.get_eligible_candidates()
-        if candidate not in eligible_candidates:
-            gender_msg = ""
-            if position.gender_restriction != 'any':
-                gender_msg = f" This position is restricted to {position.gender_restriction} candidates only."
-            raise serializers.ValidationError(f"{candidate.full_name} is not eligible for this position.{gender_msg}")
+        # Candidate must be among nominated list
+        eligible_students = position.get_eligible_candidates()
+        if candidate not in eligible_students:
+            raise serializers.ValidationError("Selected student is not nominated for this position.")
 
+        # Voter eligibility by election type
         if request:
+            if position.election.type == 'specific' and request.user.level != 500:
+                raise serializers.ValidationError("You are not eligible to vote in this specific election.")
+            # (Optional) block inactive users
+            if request.user.status != 'active':
+                raise serializers.ValidationError("Inactive users cannot vote.")
+
             self.validate_voting_pattern(request.user, position)
 
         return data
@@ -206,3 +217,39 @@ class VoteSerializer(serializers.ModelSerializer):
                     import logging
                     logger = logging.getLogger(__name__)
                     logger.info(f"User {user.matric_number} voting for same candidate {candidate_id} multiple times")
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    matric_number = serializers.CharField()
+    old_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+    date_of_birth = serializers.DateField()
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        if attrs['matric_number'].upper() != user.matric_number:
+            raise serializers.ValidationError("Matric number mismatch.")
+        if not user.check_password(attrs['old_password']):
+            raise serializers.ValidationError("Old password incorrect.")
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError("Passwords do not match.")
+        if not user.date_of_birth:
+            raise serializers.ValidationError("Date of birth not set on account.")
+        if attrs['date_of_birth'] != user.date_of_birth:
+            raise serializers.ValidationError("Date of birth mismatch.")
+        validate_password(attrs['new_password'], user=user)
+        return attrs
+
+    def save(self, **kwargs):
+        user = self.context['request'].user
+        validated = getattr(self, 'validated_data', None)
+        if not isinstance(validated, dict):
+            raise serializers.ValidationError("Cannot save password: serializer data not validated.")
+        new_password = validated.get('new_password')
+        if not new_password:
+            raise serializers.ValidationError("New password not provided.")
+        user.set_password(new_password)
+        user.has_changed_password = True
+        user.save(update_fields=['password', 'has_changed_password'])
+        return user

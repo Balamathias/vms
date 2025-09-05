@@ -34,7 +34,7 @@ import logging
 
 from .models import Election, Vote, Candidate, Student, Position, LoginAttempt, IPRestriction
 from .serializers import (
-    TokenObtainPairSerializer, ActiveElectionSerializer, VoteSerializer,
+    ChangePasswordSerializer, TokenObtainPairSerializer, ActiveElectionSerializer, VoteSerializer,
     StudentSerializer, CandidateSerializer, PositionSerializer, DynamicCandidateSerializer
 )
 from utils.response import ResponseMixin
@@ -245,7 +245,7 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
             for row_num, row in enumerate(reader, start=2):
                 try:
                     # Validate required fields
-                    required_fields = ['matric_number', 'full_name', 'level', 'state_of_origin']
+                    required_fields = ['matric_number', 'full_name', 'level', 'state_of_origin', 'date_of_birth']
                     for field in required_fields:
                         if not row.get(field, '').strip():
                             errors.append(f"Row {row_num}: Missing {field}")
@@ -265,7 +265,8 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
                         'state_of_origin': row.get('state_of_origin', '').strip(),
                         'email': row.get('email', '').strip() or None,
                         'phone_number': row.get('phone_number', '').strip() or None,
-                        'password': make_password(row.get('state_of_origin', 'password123').strip())  # Default password
+                        'password': make_password(row.get('state_of_origin', 'password123').strip()),
+                        'date_of_birth': row.get('date_of_birth', '').strip() or None,
                     }
                     
                     Student.objects.create(**student_data)
@@ -742,6 +743,15 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
                     gender=position.gender_restriction
                 ).count()
             
+            # Determine eligible voters by election type + gender
+            if position.election.type == 'specific':
+                base = Student.objects.filter(level=500, status='active')
+            else:
+                base = Student.objects.filter(status='active')
+            if position.gender_restriction != 'any':
+                base = base.filter(gender=position.gender_restriction)
+            eligible_voters = base.count()
+            
             return self.response(
                 data={
                     'position_name': position.name,
@@ -886,8 +896,14 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
         return ip
 
     def perform_create(self, serializer):
-        voter = self.request.user
+        from typing import cast
+        voter = cast(Student, self.request.user)
         position = serializer.validated_data['position']
+        # double check voter eligibility for safety
+        if position.election.type == 'specific' and voter.level != 500:
+            raise ValidationError("You are not eligible to vote in this specific election.")
+        if voter.status != 'active':
+            raise ValidationError("Inactive users cannot vote.")
         if Vote.objects.filter(voter=voter, position=position).exists():
             raise ValidationError("You have already voted for this position.")
         serializer.save(voter=voter)
@@ -1159,7 +1175,11 @@ class AdminDashboardView(APIView, ResponseMixin):
             
             if current_election:
                 election_votes = Vote.objects.filter(position__election=current_election).count()
-                eligible_voters = Student.objects.filter(level=500, status='active').count()
+                if current_election.type == 'specific':
+                    voter_pool = Student.objects.filter(level=500, status='active')
+                else:
+                    voter_pool = Student.objects.filter(status='active')
+                eligible_voters = voter_pool.count()
                 positions_count = Position.objects.filter(election=current_election).count()
                 
                 participation_rate = 0
@@ -1202,3 +1222,14 @@ class AdminDashboardView(APIView, ResponseMixin):
             logger.error(f"Admin dashboard failed: {str(e)}")
             return self.response(error={"detail": "Dashboard data retrieval failed."}, status_code=500)
 
+
+class ChangePasswordView(APIView, ResponseMixin):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return self.response(data={}, message="Password changed successfully.")
+        return self.response(error=serializer.errors, status_code=400)
+    

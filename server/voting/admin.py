@@ -9,7 +9,7 @@ from .models import Student, Election, Position, Candidate, Vote, IPRestriction,
 
 @admin.register(Student)
 class StudentAdmin(UserAdmin):
-    list_display = ('matric_number', 'full_name', 'level', 'gender', 'status', 'state_of_origin', 'email', 'is_active', 'is_candidate_indicator', 'picture_preview')
+    list_display = ('matric_number', 'full_name', 'level', 'gender', 'status', 'state_of_origin', 'email', 'is_active', 'has_changed_password', 'is_candidate_indicator', 'picture_preview')
     list_filter = ('level', 'gender', 'status', 'state_of_origin', 'is_active', 'date_joined')
     search_fields = ('matric_number', 'full_name', 'email', 'phone_number')
     ordering = ('matric_number',)
@@ -17,8 +17,8 @@ class StudentAdmin(UserAdmin):
     
     fieldsets = (
         (None, {'fields': ('matric_number', 'password')}),
-        ('Personal info', {'fields': ('full_name', 'gender', 'email', 'phone_number', 'picture', 'picture_preview')}),
-        ('Academic info', {'fields': ('level', 'state_of_origin', 'status', 'is_verified', 'is_nominated')}),
+        ('Personal info', {'fields': ('full_name', 'gender', 'email', 'phone_number', 'picture', 'picture_preview', 'date_of_birth', 'state_of_origin')}),
+        ('Academic info', {'fields': ('level', 'status', 'is_verified', 'has_changed_password')}),
         ('Permissions', {
             'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
         }),
@@ -28,16 +28,17 @@ class StudentAdmin(UserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('matric_number', 'full_name', 'gender', 'level', 'state_of_origin', 'password1', 'password2', 'is_verified', 'is_nominated'),
+            'fields': ('matric_number', 'full_name', 'gender', 'level', 'state_of_origin', 'date_of_birth', 'password1', 'password2', 'is_verified'),
         }),
     )
     
-    readonly_fields = ('date_joined', 'last_login', 'id', 'picture_preview')
+    readonly_fields = ('date_joined', 'last_login', 'id', 'picture_preview', 'has_changed_password')
     
     def is_candidate_indicator(self, obj):
-        if obj.is_candidate:
-            return format_html('<span style="color: green;">✓ Eligible</span>')
-        return format_html('<span style="color: gray;">✗ Not Eligible</span>')
+        from .models import Candidate
+        if Candidate.objects.filter(student=obj).exists():
+            return format_html('<span style="color: green;">✓ Nominated</span>')
+        return format_html('<span style="color: gray;">✗ Not Nominated</span>')
     is_candidate_indicator.short_description = 'Candidate Status'
     
     def picture_preview(self, obj):
@@ -52,8 +53,8 @@ class StudentAdmin(UserAdmin):
 
 @admin.register(Election)
 class ElectionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'start_date', 'end_date', 'is_active', 'is_ongoing_indicator', 'positions_count', 'votes_count')
-    list_filter = ('is_active', 'start_date', 'end_date')
+    list_display = ('name', 'type', 'start_date', 'end_date', 'is_active', 'is_ongoing_indicator', 'positions_count', 'votes_count')
+    list_filter = ('type', 'is_active', 'start_date', 'end_date')
     search_fields = ('name',)
     ordering = ('-start_date',)
     readonly_fields = ('id',)
@@ -78,7 +79,7 @@ class ElectionAdmin(admin.ModelAdmin):
 
 @admin.register(Position)
 class PositionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'election', 'gender_restriction', 'enhancements_count', 'votes_count', 'eligible_candidates_count', 'position_type')
+    list_display = ('name', 'election', 'gender_restriction', 'position_type', 'enhancements_count', 'votes_count', 'eligible_candidates_count')
     list_filter = ('election', 'election__is_active', 'gender_restriction', 'position_type')
     search_fields = ('name', 'election__name')
     ordering = ('election__start_date', 'name')
@@ -97,7 +98,8 @@ class PositionAdmin(admin.ModelAdmin):
     votes_count.short_description = 'Votes'
     
     def eligible_candidates_count(self, obj):
-        return obj.get_eligible_candidates().count()
+        # previously derived algorithmically; now nominations
+        return obj.candidates.count()
     eligible_candidates_count.short_description = 'Eligible Students'
     
     def get_queryset(self, request):

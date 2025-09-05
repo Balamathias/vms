@@ -5,7 +5,7 @@ from rest_framework_simplejwt.views import TokenVerifyView
 from .views import (
     ObtainTokenPairView, RefreshTokenView, LogoutView, CurrentUserView,
     StudentViewSet, ElectionViewSet, VoteViewSet, PositionViewSet, 
-    CandidateViewSet, AdminDashboardView
+    CandidateViewSet, AdminDashboardView, ChangePasswordView
 )
 
 router = DefaultRouter()
@@ -22,6 +22,7 @@ urlpatterns = [
     path('auth/verify/', TokenVerifyView.as_view(), name='token_verify'),
     path('auth/logout/', LogoutView.as_view(), name='logout'),
     path('auth/me/', CurrentUserView.as_view(), name='current_user'),
+    path('auth/change-password/', ChangePasswordView.as_view(), name='change-password'),
     
     # Admin dashboard
     path('admin/dashboard/', AdminDashboardView.as_view(), name='admin_dashboard'),
