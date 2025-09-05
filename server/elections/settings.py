@@ -15,7 +15,9 @@ import os
 
 from botocore.config import Config
 
+import dj_database_url
 from dotenv import load_dotenv
+from typing import Any, cast
 
 load_dotenv()
 
@@ -108,7 +110,10 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+db_config = dj_database_url.config(default=os.getenv('DATABASE_URL'))
 
+if db_config:
+    DATABASES['default'] = cast(dict[str, Any], dict(db_config))
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -188,7 +193,6 @@ FRONTEND_URL = os.getenv('FRONTEND_URL') if DEBUG else os.getenv('FRONTEND_URL_P
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles_build', 'static')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
 
 
 # Default primary key field type
