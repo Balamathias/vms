@@ -10,7 +10,7 @@ from .models import Student, Election, Position, Candidate, Vote, IPRestriction,
 @admin.register(Student)
 class StudentAdmin(UserAdmin):
     list_display = ('matric_number', 'full_name', 'level', 'gender', 'status', 'state_of_origin', 'email', 'is_active', 'has_changed_password', 'is_candidate_indicator', 'picture_preview')
-    list_filter = ('level', 'gender', 'status', 'state_of_origin', 'is_active', 'date_joined')
+    list_filter = ('level', 'gender', 'status', 'state_of_origin', 'is_active', 'date_joined', 'has_changed_password')
     search_fields = ('matric_number', 'full_name', 'email', 'phone_number')
     ordering = ('matric_number',)
     list_per_page = 50
