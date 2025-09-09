@@ -1268,7 +1268,7 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
             }
 
         # Enforce single-account-per-IP voting: block if any other voter has successful vote attempts from this IP.
-        window_start = timezone.now() - timedelta(hours=IP_VOTE_WINDOW_HOURS)
+        """window_start = timezone.now() - timedelta(hours=IP_VOTE_WINDOW_HOURS)
         other_voter_exists = VoteAttempt.objects.filter(
             ip_address=ip_address,
             success=True,
@@ -1278,11 +1278,11 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
             return {
                 'blocked': True,
                 'reason': 'Multiple accounts voting detected. This is not allowed. Further attempts will have you blocked forever.'
-            }
+            }"""
         
         current_hour = timezone.now().hour
         if hasattr(settings, 'VOTING_ALLOWED_HOURS'):
-            allowed_hours = getattr(settings, 'VOTING_ALLOWED_HOURS', range(6, 22))  # 6 AM to 10 PM default
+            allowed_hours = getattr(settings, 'VOTING_ALLOWED_HOURS', range(6, 23))  # 6 AM to 11 PM default
             if current_hour not in allowed_hours:
                 return {
                     'blocked': True,
@@ -1311,7 +1311,6 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
         from typing import cast
         voter = cast(Student, self.request.user)
         position = serializer.validated_data['position']
-        # double check voter eligibility for safety
         if position.election.type == 'specific' and voter.level != 500:
             raise ValidationError("You are not eligible to vote in this specific election.")
         if voter.status != 'active':
