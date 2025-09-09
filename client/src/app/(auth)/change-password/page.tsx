@@ -76,15 +76,15 @@ const ChangePasswordPage = () => {
     }, {
       onSuccess: (resp: any) => {
         if (resp?.error) {
-          form.setError('root', { message: resp.message || 'Failed to change password' })
-          toast.error(resp.message || 'Failed to change password')
+          form.setError('root', { message: (resp.message.replace('non_field_errors:', '')).trim() || 'Failed to change password' })
+          toast.error((resp.message.replace('non_field_errors:', '')).trim() || 'Failed to change password')
           return
         }
         toast.success(resp?.message || 'Password changed successfully')
         router.replace('/login')
       },
       onError: (err: any) => {
-        form.setError('root', { message: err.message })
+        form.setError('root', { message: (err.message.replace('non_field_errors:', '')).trim() })
         toast.error(err.message)
       }
     })
