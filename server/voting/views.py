@@ -83,7 +83,7 @@ class ObtainTokenPairView(TokenObtainPairView, ResponseMixin):
             )
 
         # Hard deactivate check (in case already deactivated by prior failures)
-        if matric_number:
+        """if matric_number:
             existing = Student.objects.filter(matric_number=matric_number).first()
             if existing and not existing.is_active:
                 return self.response(
@@ -100,7 +100,7 @@ class ObtainTokenPairView(TokenObtainPairView, ResponseMixin):
                     data={},
                     message="Multiple login detected, this is not allowed. Further attempts will block you out forever.",
                     status_code=403
-                )
+                )"""
         
         response = super().post(request, *args, **kwargs)
         
