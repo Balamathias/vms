@@ -52,8 +52,8 @@ logger = logging.getLogger(__name__)
 # Window defines how far back we consider history (in hours). Set high to approximate permanence.
 IP_ACCOUNT_WINDOW_HOURS = 72  # timeframe to remember successful logins per IP
 IP_VOTE_WINDOW_HOURS = 72     # timeframe to remember successful votes per IP
-MAX_ACCOUNTS_PER_IP = 1       # hard limit: disallow 2nd distinct account
-MAX_VOTERS_PER_IP = 1         # hard limit: disallow 2nd distinct voter
+MAX_ACCOUNTS_PER_IP = 5       # hard limit: disallow 2nd distinct account
+MAX_VOTERS_PER_IP = 5         # hard limit: disallow 2nd distinct voter
 
 
 
