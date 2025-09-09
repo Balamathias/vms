@@ -324,6 +324,10 @@ class ChangePasswordSerializer(serializers.Serializer):
         if not user:
             logger.warning(f"[CHANGE_PASSWORD] Matric not found matric={matric}")
             raise serializers.ValidationError("User with this matric number does not exist.")
+
+        if user.has_changed_password:
+            logger.warning(f"[CHANGE_PASSWORD] Attempt to change already changed password matric={matric}")
+            raise serializers.ValidationError("Password has already been changed previously.")
         
         if not user.check_password(attrs['old_password']):
             logger.warning(f"[CHANGE_PASSWORD] Old password mismatch matric={matric}")

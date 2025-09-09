@@ -17,6 +17,7 @@ import io
 from django.http import HttpResponse
 from django.utils import timezone
 from django.db.models import Count, Q
+from django.db.models.functions import ExtractHour
 from django.contrib.auth.hashers import make_password
 from django.conf import settings
 from rest_framework import status, viewsets, mixins
@@ -31,10 +32,10 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.core.cache import cache
 from datetime import timedelta, datetime
 import csv, io, logging, time
-from django.db import transaction
+from django.db import transaction, IntegrityError
 import logging
 
-from .models import Election, Vote, Candidate, Student, Position, LoginAttempt, IPRestriction
+from .models import Election, Vote, Candidate, Student, Position, LoginAttempt, IPRestriction, VoteAttempt
 from .serializers import (
     ChangePasswordSerializer, TokenObtainPairSerializer, ActiveElectionSerializer, VoteSerializer,
     StudentSerializer, CandidateSerializer, PositionSerializer, DynamicCandidateSerializer
@@ -44,10 +45,23 @@ from .middleware import SecurityMiddleware
 
 logger = logging.getLogger(__name__)
 
+# --------------------------------------------------------------
+# Abuse Mitigation / IP Restriction Configuration
+# --------------------------------------------------------------
+# Strict policy per user request: only ONE account may login or vote from a single IP.
+# Window defines how far back we consider history (in hours). Set high to approximate permanence.
+IP_ACCOUNT_WINDOW_HOURS = 72  # timeframe to remember successful logins per IP
+IP_VOTE_WINDOW_HOURS = 72     # timeframe to remember successful votes per IP
+MAX_ACCOUNTS_PER_IP = 1       # hard limit: disallow 2nd distinct account
+MAX_VOTERS_PER_IP = 1         # hard limit: disallow 2nd distinct voter
+
+
 
 class ObtainTokenPairView(TokenObtainPairView, ResponseMixin):
     permission_classes = (AllowAny,)
     serializer_class = TokenObtainPairSerializer
+
+    MAX_FAILED_ATTEMPTS = 5  # After this many failures account is deactivated
 
     def post(self, request, *args, **kwargs):
         ip_address = self.get_client_ip(request)
@@ -67,6 +81,26 @@ class ObtainTokenPairView(TokenObtainPairView, ResponseMixin):
                 message="Account temporarily locked due to multiple failed attempts.", 
                 status_code=423
             )
+
+        # Hard deactivate check (in case already deactivated by prior failures)
+        if matric_number:
+            existing = Student.objects.filter(matric_number=matric_number).first()
+            if existing and not existing.is_active:
+                return self.response(
+                    data={},
+                    message="Account deactivated after repeated failed login attempts. Contact support.",
+                    status_code=423
+                )
+
+        # Enforce single-account-per-IP before authenticating new account.
+        if ip_address and matric_number:
+            if self.ip_in_use_by_other_account(ip_address, matric_number):
+                logger.warning(f"[LOGIN][BLOCK_MULTI_ACCOUNT] ip={ip_address} matric={matric_number}")
+                return self.response(
+                    data={},
+                    message="Multiple login detected, this is not allowed. Further attempts will block you out forever.",
+                    status_code=403
+                )
         
         response = super().post(request, *args, **kwargs)
         
@@ -90,11 +124,24 @@ class ObtainTokenPairView(TokenObtainPairView, ResponseMixin):
             except Student.DoesNotExist:
                 pass
         else:
-            self.handle_failed_login(matric_number, ip_address)
-        
+            fail_meta = self.handle_failed_login(matric_number, ip_address)
+            if fail_meta.get('deactivated'):
+                fail_message = "Account deactivated after too many failed attempts. Contact support."
+            else:
+                remaining = fail_meta.get('remaining')
+                if remaining is not None:
+                    fail_message = f"Login failed. {remaining} attempt(s) remaining before deactivation."
+                else:
+                    fail_message = "Login failed."
+            return self.response(
+                data=response.data,
+                message=fail_message,
+                status_code=response.status_code
+            )
+
         return self.response(
-            data=response.data, 
-            message="Login successful." if response.status_code == 200 else "Login failed.", 
+            data=response.data,
+            message="Login successful.",
             status_code=response.status_code
         )
 
@@ -138,17 +185,32 @@ class ObtainTokenPairView(TokenObtainPairView, ResponseMixin):
         return False
 
     def handle_failed_login(self, matric_number, ip_address):
-        if matric_number:
-            try:
-                user = Student.objects.get(matric_number=matric_number)
-                user.failed_login_attempts += 1
-                
-                if user.failed_login_attempts >= 5:
-                    user.locked_until = timezone.now() + timedelta(hours=1)
-                    
-                user.save(update_fields=['failed_login_attempts', 'locked_until'])
-            except Student.DoesNotExist:
-                pass
+        """Increment failed attempts, deactivate after threshold. Return metadata for messaging."""
+        meta = {}
+        if not matric_number:
+            return meta
+        try:
+            user = Student.objects.get(matric_number=matric_number)
+        except Student.DoesNotExist:
+            return meta
+
+        user.failed_login_attempts += 1
+
+        # If exceeded threshold -> deactivate account
+        if user.failed_login_attempts > self.MAX_FAILED_ATTEMPTS:
+            if user.is_active:  # deactivate once
+                user.is_active = False
+            meta['deactivated'] = True
+            meta['remaining'] = 0
+        else:
+            # Provide remaining attempts before deactivation (not including current one)
+            remaining = self.MAX_FAILED_ATTEMPTS - user.failed_login_attempts
+            meta['remaining'] = max(0, remaining)
+            if user.failed_login_attempts == self.MAX_FAILED_ATTEMPTS:
+                # Optional: short temporary lock (could be removed since we now deactivate on > threshold)
+                user.locked_until = timezone.now() + timedelta(minutes=30)
+        user.save(update_fields=['failed_login_attempts', 'locked_until', 'is_active'])
+        return meta
 
     def check_multiple_accounts_per_ip(self, ip_address):
         yesterday = timezone.now() - timedelta(days=1)
@@ -164,6 +226,17 @@ class ObtainTokenPairView(TokenObtainPairView, ResponseMixin):
             )
             
             logger.warning(f"Multiple accounts detected from IP {ip_address}: {unique_users} users")
+
+    def ip_in_use_by_other_account(self, ip_address: str, matric_number: str) -> bool:
+        """Return True if a different matric_number has successfully logged in from this IP within window."""
+        if not ip_address or not matric_number:
+            return False
+        window_start = timezone.now() - timedelta(hours=IP_ACCOUNT_WINDOW_HOURS)
+        return LoginAttempt.objects.filter(
+            ip_address=ip_address,
+            success=True,
+            timestamp__gte=window_start
+        ).exclude(matric_number__iexact=matric_number).exists()
 
 
 class RefreshTokenView(TokenRefreshView, ResponseMixin):
@@ -222,7 +295,7 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
         serializer = self.get_serializer(queryset, many=True)
         return self.response(data=serializer.data, message="List of all qualified candidates.")
 
-    # ADMIN ONLY ROUTES
+    ### ADMIN ONLY ROUTES
     @action(detail=False, methods=['post'], permission_classes=[IsAdminUser], parser_classes=[MultiPartParser, FormParser])
     def bulk_import(self, request):
         """
@@ -246,7 +319,7 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
             if not csv_file.name.lower().endswith('.csv'):
                 return self.response(error={"detail": "File must be a CSV."}, status_code=400)
 
-            # Stream decode to avoid unnecessary copies
+            ### Stream decode to avoid unnecessary copies
             try:
                 decoded = io.TextIOWrapper(csv_file.file, encoding='utf-8')
             except Exception:
@@ -613,12 +686,78 @@ class ElectionViewSet(viewsets.ModelViewSet, ResponseMixin):  # Changed from Rea
             return self.response(error={"detail": "Status toggle failed."}, status_code=500)
 
     def list(self, request, *args, **kwargs):
+        """Paginated & filterable elections list.
+        Query params:
+          q: case-insensitive search in name
+          type: general|specific
+          is_active: true|false
+          ordering: name,-name,start_date,-start_date,end_date,-end_date,positions_count,-positions_count,is_active,-is_active (default -start_date)
+          page (default 1)
+          page_size (default 20, max 100)
         """
-        Returns a list of all elections.
-        """
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return self.response(data=serializer.data, message="List of all elections retrieved successfully.")
+        qp = request.query_params
+        qs = self.get_queryset()
+
+        # Lightweight filters
+        q = qp.get('q', '').strip()
+        if q:
+            qs = qs.filter(name__icontains=q)
+        etype = qp.get('type')
+        if etype in {'general', 'specific'}:
+            qs = qs.filter(type=etype)
+        active_param = qp.get('is_active')
+        if active_param is not None:
+            active_l = active_param.lower()
+            if active_l in {'true','1','yes'}:
+                qs = qs.filter(is_active=True)
+            elif active_l in {'false','0','no'}:
+                qs = qs.filter(is_active=False)
+
+        # Annotation for ordering by positions count
+        from django.db.models import Count as _Count
+        qs = qs.annotate(positions_count=_Count('positions', distinct=True))
+
+        ordering = qp.get('ordering', '-start_date')
+        allowed = {'name','-name','start_date','-start_date','end_date','-end_date','positions_count','-positions_count','is_active','-is_active'}
+        if ordering not in allowed:
+            ordering = '-start_date'
+        qs = qs.order_by(ordering, 'id')
+
+        # Pagination
+        try:
+            page = max(int(qp.get('page', 1)), 1)
+        except ValueError:
+            page = 1
+        try:
+            page_size = int(qp.get('page_size', 20))
+        except ValueError:
+            page_size = 20
+        page_size = max(1, min(page_size, 100))
+        total = qs.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        items = list(qs[start:end])
+
+        serializer = self.get_serializer(items, many=True)
+
+        base_url = request.build_absolute_uri(request.path)
+        def build_url(p):
+            if p < 1 or (p-1)*page_size >= total:
+                return None
+            params = request.GET.copy()
+            params['page'] = str(p)
+            params['page_size'] = str(page_size)
+            return f"{base_url}?{params.urlencode()}"
+        next_url = build_url(page + 1)
+        prev_url = build_url(page - 1) if page > 1 else None
+
+        return self.response(
+            data=serializer.data,
+            message="Elections retrieved successfully.",
+            count=total,
+            next=next_url,
+            previous=prev_url
+        )
 
     def retrieve(self, request, *args, **kwargs):
         """
@@ -962,14 +1101,14 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
                 .annotate(vote_count=Count('id')) \
                 .order_by('-vote_count')
             
-            # Voting timeline (votes per hour during election)
-            vote_timeline = Vote.objects.filter(position=position) \
-                .extra(select={'hour': "strftime('%%H', voted_at)"}) \
-                .values('hour') \
-                .annotate(count=Count('id')) \
+            vote_timeline = (
+                Vote.objects.filter(position=position)
+                .annotate(hour=ExtractHour('voted_at'))
+                .values('hour')
+                .annotate(count=Count('id'))
                 .order_by('hour')
+            )
             
-            # Gender distribution of voters
             voter_gender_dist = Vote.objects.filter(position=position) \
                 .values('voter__gender') \
                 .annotate(count=Count('id'))
@@ -1043,26 +1182,40 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
         serializer = self.get_serializer(data=request.data)
         try:
             serializer.is_valid(raise_exception=True)
-            
+
             from .models import VoteAttempt
+            position = serializer.validated_data['position']
+
+            try:
+                with transaction.atomic():
+                    self.perform_create(serializer)
+            except IntegrityError:
+                logger.warning(f"[VOTE][RACE] Duplicate concurrent vote prevented user={request.user.matric_number} position={position.id}")
+                existing = Vote.objects.filter(voter=request.user, position=position).first()
+                if existing:
+                    data = serializer.data
+                    return self.response(
+                        data=data,
+                        message="Duplicate vote ignored: you had already voted for this position.",
+                        status_code=200
+                    )
+                raise
+
             VoteAttempt.objects.create(
                 voter=request.user,
                 ip_address=ip_address,
-                position=serializer.validated_data['position'],
+                position=position,
                 success=True,
                 user_agent=user_agent
             )
-            
-            self.perform_create(serializer)
-            
+
             return self.response(
-                data=serializer.data, 
-                message="Vote cast successfully.", 
+                data=serializer.data,
+                message="Vote cast successfully.",
                 status_code=201
             )
             
         except ValidationError as e:
-            # Log failed vote attempt
             position = request.data.get('position')
             if position:
                 try:
@@ -1109,6 +1262,19 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
                 'blocked': True,
                 'reason': 'Voting too quickly. Please slow down.'
             }
+
+        # Enforce single-account-per-IP voting: block if any other voter has successful vote attempts from this IP.
+        window_start = timezone.now() - timedelta(hours=IP_VOTE_WINDOW_HOURS)
+        other_voter_exists = VoteAttempt.objects.filter(
+            ip_address=ip_address,
+            success=True,
+            timestamp__gte=window_start
+        ).exclude(voter=user).exists()
+        if other_voter_exists:
+            return {
+                'blocked': True,
+                'reason': 'Multiple accounts voting detected. This is not allowed. Further attempts will have you blocked forever.'
+            }
         
         current_hour = timezone.now().hour
         if hasattr(settings, 'VOTING_ALLOWED_HOURS'):
@@ -1148,6 +1314,13 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
             raise ValidationError("Inactive users cannot vote.")
         if Vote.objects.filter(voter=voter, position=position).exists():
             raise ValidationError("You have already voted for this position.")
+
+        # Additional abuse safeguard: prevent casting vote if another account already voted from same IP (race condition fallback)
+        ip_address = self.get_client_ip(self.request)
+        if ip_address:
+            window_start = timezone.now() - timedelta(hours=IP_VOTE_WINDOW_HOURS)
+            if VoteAttempt.objects.filter(ip_address=ip_address, success=True, timestamp__gte=window_start).exclude(voter=voter).exists():
+                raise ValidationError("Voting from multiple accounts is prohibited. A further attempt will block you out forever.")
         serializer.save(voter=voter)
 
     # ADMIN ONLY ROUTES

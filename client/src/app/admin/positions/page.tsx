@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { getPositions, getElections, bulkCreatePositions } from '@/services/server/api';
-import { Plus, Users, Vote as VoteIcon, Filter, Eye, Edit, Trash2 } from 'lucide-react';
+import { Plus, Users, Vote as VoteIcon, Filter, Eye, Edit, Trash2, BarChart3 } from 'lucide-react';
 import { Position, Election } from '@/@types/db';
 import { cn } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
@@ -188,9 +188,16 @@ export default function PositionsPage() {
                     <div className="sm:ml-auto text-white/70 text-sm text-center sm:text-left flex flex-col items-start sm:items-end gap-1">
                         <span>{total} positions found</span>
                         <div className="flex items-center gap-2 text-xs">
-                            <select value={pageSize} onChange={(e)=>{ setPageSize(Number(e.target.value)); setPage(1); }} className="bg-white/10 border border-white/20 rounded px-2 py-1 text-white/70">
-                                {[15,30,60,100].map(s=> <option key={s} value={s}>{s}/page</option>)}
-                            </select>
+                            <Select value={String(pageSize)} onValueChange={(v)=>{ setPageSize(Number(v)); setPage(1); }}>
+                                <SelectTrigger className="w-28 bg-white/10 border-white/20 text-white/70 focus:border-white/40 focus:ring-white/20">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white/10 backdrop-blur-xl border-white/20 text-white/80">
+                                    {[15,30,60,100].map(s => (
+                                        <SelectItem key={s} value={String(s)} className="text-white hover:bg-white/20">{s}/page</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                             <div className="flex gap-1">
                                 <button disabled={page===1} onClick={()=>setPage(p=>p-1)} className="px-2 py-1 rounded bg-white/10 disabled:opacity-40">Prev</button>
                                 <span className="px-1">{page}/{totalPages}</span>
@@ -202,18 +209,95 @@ export default function PositionsPage() {
                 </div>
             </div>
 
-            {/* Positions Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {positionsLoading ? (
-                    Array.from({ length: 6 }).map((_, i) => (
-                        <div key={i} className="h-48 rounded-2xl bg-white/5 border border-white/20 animate-pulse" />
-                    ))
-                ) : positions.length ? (
-                    positions.map((position: any) => (
-                        <PositionCard key={position.id} position={position} />
-                    ))
-                ) : (
-                    <div className="col-span-full py-16 text-center text-white/40 text-sm">No positions found matching filters.</div>
+            {/* Positions Table */}
+            <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/20 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="bg-white/10 text-white/70">
+                                <th className="px-4 py-3 text-left font-medium whitespace-nowrap">Name</th>
+                                <th className="px-4 py-3 text-left font-medium whitespace-nowrap">Election</th>
+                                <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Candidates</th>
+                                <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Votes</th>
+                                <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Gender</th>
+                                <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Type</th>
+                                <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/10">
+                            {positionsLoading && (
+                                Array.from({ length: 6 }).map((_, i) => (
+                                    <tr key={i} className="animate-pulse">
+                                        <td className="px-4 py-3" colSpan={7}>
+                                            <div className="h-4 w-2/3 rounded bg-white/10" />
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                            {!positionsLoading && positions.length === 0 && (
+                                <tr>
+                                    <td colSpan={7} className="px-4 py-10 text-center text-white/40 text-sm">No positions found matching filters.</td>
+                                </tr>
+                            )}
+                            {!positionsLoading && positions.map((p) => (
+                                <tr key={p.id} className="hover:bg-white/5 transition-colors">
+                                    <td className="px-4 py-3 align-top">
+                                        <div className="flex items-start gap-3">
+                                            <div className="p-1.5 rounded-md bg-gradient-to-r from-purple-500 to-blue-600">
+                                                <VoteIcon className="h-4 w-4 text-white" />
+                                            </div>
+                                            <div>
+                                                <div className="font-medium text-white leading-tight">{p.name}</div>
+                                                <div className="text-[11px] text-white/40">ID: {p.id.slice(0,8)}…</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-white/80 align-top whitespace-nowrap">{p.election_name}</td>
+                                    <td className="px-4 py-3 text-center text-white font-semibold align-top">{p.candidate_count ?? 0}</td>
+                                    <td className="px-4 py-3 text-center text-white font-semibold align-top">{p.vote_count ?? 0}</td>
+                                    <td className="px-4 py-3 text-center align-top">
+                                        <span className={cn(
+                                            "px-2 py-1 rounded-full text-[11px] font-medium border inline-block",
+                                            p.gender_restriction === 'any' ? 'bg-green-500/15 text-green-400 border-green-400/30' :
+                                            p.gender_restriction === 'male' ? 'bg-blue-500/15 text-blue-400 border-blue-400/30' :
+                                            'bg-pink-500/15 text-pink-400 border-pink-400/30'
+                                        )}>
+                                            {p.gender_restriction === 'any' ? 'All' : p.gender_restriction === 'male' ? 'Male' : 'Female'}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3 text-center align-top">
+                                        <span className={cn(
+                                            "px-2 py-1 rounded-full text-[11px] font-medium border inline-block",
+                                            p.position_type === 'senior' ? 'bg-purple-500/15 text-purple-400 border-purple-400/30' : 'bg-orange-500/15 text-orange-400 border-orange-400/30'
+                                        )}>
+                                            {p.position_type === 'senior' ? 'Senior' : 'Junior'}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3 text-center align-top">
+                                        <div className="flex items-center justify-center gap-1">
+                                            <button
+                                                onClick={() => window.location.href = `/admin/positions/${p.id}`}
+                                                className="p-2 rounded-lg bg-white/10 border border-white/20 text-white/70 hover:text-white hover:bg-white/20 transition-all"
+                                                title="View Analytics"
+                                            >
+                                                <BarChart3 className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                disabled
+                                                className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/30 cursor-not-allowed"
+                                                title="Edit (coming soon)"
+                                            >
+                                                <Edit className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                {positionsFetching && !positionsLoading && (
+                    <div className="px-4 py-2 text-[11px] text-white/40 border-t border-white/10">Updating…</div>
                 )}
             </div>
 
@@ -230,78 +314,7 @@ export default function PositionsPage() {
     );
 }
 
-function PositionCard({ position }: { position: Position }) {
-    const router = useRouter();
-
-    const handleViewAnalytics = () => {
-        router.push(`/admin/positions/${position.id}`);
-    };
-
-    return (
-        <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/20 p-6 hover:bg-white/10 transition-all">
-            <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-gradient-to-r from-purple-500 to-blue-600">
-                        <VoteIcon className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-semibold text-white">{position.name}</h3>
-                        <p className="text-white/60 text-sm">{position.election_name}</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-1">
-                    <button className="p-2 rounded-lg bg-white/10 border border-white/20 text-white/70 hover:text-white hover:bg-white/20 transition-all">
-                        <Eye className="h-4 w-4" />
-                    </button>
-                    <button className="p-2 rounded-lg bg-white/10 border border-white/20 text-white/70 hover:text-white hover:bg-white/20 transition-all">
-                        <Edit className="h-4 w-4" />
-                    </button>
-                </div>
-            </div>
-
-            <div className="space-y-3 mb-4">
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center">
-                        <div className="text-lg font-semibold text-white">{position.candidate_count || 0}</div>
-                        <div className="text-xs text-white/60">Candidates</div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-lg font-semibold text-white">{position?.vote_count || 0}</div>
-                        <div className="text-xs text-white/60">Votes</div>
-                    </div>
-                </div>
-                <div className="flex items-center justify-center gap-2">
-                    <span className={cn(
-                        "px-2 py-1 rounded-full text-xs font-medium",
-                        position.gender_restriction === 'any'
-                            ? "bg-green-500/20 text-green-400 border border-green-400/30"
-                            : position.gender_restriction === 'male'
-                            ? "bg-blue-500/20 text-blue-400 border border-blue-400/30"
-                            : "bg-pink-500/20 text-pink-400 border border-pink-400/30"
-                    )}>
-                        {position.gender_restriction === 'any' ? 'All Genders' : 
-                         position.gender_restriction === 'male' ? 'Male Only' : 'Female Only'}
-                    </span>
-                    <span className={cn(
-                        "px-2 py-1 rounded-full text-xs font-medium",
-                        position.position_type === 'senior'
-                            ? "bg-purple-500/20 text-purple-400 border border-purple-400/30"
-                            : "bg-orange-500/20 text-orange-400 border border-orange-400/30"
-                    )}>
-                        {position.position_type === 'senior' ? 'Senior Award' : 'Junior Award'}
-                    </span>
-                </div>
-            </div>
-
-            <button 
-                onClick={handleViewAnalytics}
-                className="w-full px-3 py-2 rounded-lg bg-blue-500/20 border border-blue-400/30 text-blue-400 hover:bg-blue-500/30 transition-all text-sm"
-            >
-                View Analytics
-            </button>
-        </div>
-    );
-}
+// PositionCard removed in favor of table layout
 
 function CreatePositionsModal({ 
     onClose, 

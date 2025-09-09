@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getElection, getElections, getVotingLogs } from '@/services/server/api';
-import { Calendar, Plus, Eye, Edit, Trash2, Play, Pause, Trophy, Users, Vote, BarChart3, X, Clock } from 'lucide-react';
+import { Calendar, Plus, Eye, Edit, Play, Pause, Trophy, Users, Vote, BarChart3, X, Clock, Filter } from 'lucide-react';
 import { Election } from '@/@types/db';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import axios from 'axios';
 import { useSearchParams } from 'next/navigation';
 import { QUERY_KEYS, useCreateElection, useToggleElectionStatus, useUpdateElection } from '@/services/client/api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export interface ElectionFormData {
     name: string;
@@ -31,10 +32,29 @@ export default function ElectionsPage() {
     const [viewingElection, setViewingElection] = useState<Election | null>(null);
     const queryClient = useQueryClient();
 
-    const { data: electionsData, isLoading } = useQuery({
-        queryKey: ['elections'],
-        queryFn: () => getElections()
+    const [search, setSearch] = useState('');
+    const [typeFilter, setTypeFilter] = useState<string>('');
+    const [statusFilter, setStatusFilter] = useState<string>('');
+    const [ordering, setOrdering] = useState<string>('-start_date');
+    const [page, setPage] = useState<number>(1);
+    const [pageSize, setPageSize] = useState<number>(15);
+
+    const { data: electionsData, isLoading, isFetching } = useQuery({
+        queryKey: ['elections', { search, typeFilter, statusFilter, ordering, page, pageSize }],
+        queryFn: () => getElections({
+            q: search || undefined,
+            type: typeFilter && typeFilter !== 'any' ? (typeFilter as 'general' | 'specific') : undefined,
+            is_active: statusFilter === '' || statusFilter === 'any' ? undefined : statusFilter === 'active',
+            ordering,
+            page,
+            page_size: pageSize,
+        })
     });
+
+    const elections = electionsData?.data || [];
+    const total = electionsData?.count || 0;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    useEffect(()=>{ if(page>totalPages) setPage(totalPages); },[totalPages,page]);
 
     const createElectionMutation = useCreateElection();
     const updateElectionMutation = useUpdateElection();
@@ -67,30 +87,187 @@ export default function ElectionsPage() {
                 </button>
             </div>
 
-            {/* Elections Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {isLoading ? (
-                    Array.from({ length: 6 }).map((_, i) => (
-                        <div key={i} className="h-64 rounded-2xl bg-white/5 border border-white/20 animate-pulse" />
-                    ))
-                ) : electionsData?.data?.map((election) => (
-                    <ElectionCard 
-                        key={election.id} 
-                        election={election} 
-                        onToggleStatus={(id) => toggleElectionMutation.mutate(id, {
-                            onSuccess: () => {
-                                toast.success(`Election ${election.is_active ? 'paused' : 'activated'} successfully`);
-                                queryClient.invalidateQueries({ queryKey: ['elections']});
-                            },
-                            onError: (error) => {
-                                toast.error(`Failed to toggle election status: ${error.message}`);
-                            }
-                        })}
-                        onEditElection={() => handleEditElection(election)}
-                        onViewElection={() => handleViewElection(election)}
-                        isToggling={toggleElectionMutation.isPending}
-                    />
-                ))}
+            {/* Filters */}
+            <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/20 p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <Filter className="h-4 w-4 text-white/70" />
+                        <span className="text-white/70 text-sm">Filters:</span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
+                        <div className="flex flex-col gap-1">
+                            <span className="text-white/60 text-xs">Search:</span>
+                            <input value={search} onChange={(e)=>{ setSearch(e.target.value); setPage(1); }} placeholder="Search name..." className="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <span className="text-white/60 text-xs">Type:</span>
+                            <Select value={typeFilter} onValueChange={(v)=>{ setTypeFilter(v); setPage(1); }}>
+                                <SelectTrigger className="w-full sm:w-40 bg-white/10 border-white/20 text-white focus:border-white/40 focus:ring-white/20">
+                                    <SelectValue placeholder="All Types" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white/10 backdrop-blur-xl border-white/20 text-white">
+                                    <SelectItem value="all" className="text-white hover:bg-white/20">All</SelectItem>
+                                    <SelectItem value="general" className="text-white hover:bg-white/20">General</SelectItem>
+                                    <SelectItem value="specific" className="text-white hover:bg-white/20">Specific</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <span className="text-white/60 text-xs">Status:</span>
+                            <Select value={statusFilter} onValueChange={(v)=>{ setStatusFilter(v); setPage(1); }}>
+                                <SelectTrigger className="w-full sm:w-40 bg-white/10 border-white/20 text-white focus:border-white/40 focus:ring-white/20">
+                                    <SelectValue placeholder="All Status" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white/10 backdrop-blur-xl border-white/20 text-white">
+                                    <SelectItem value="all" className="text-white hover:bg-white/20">All</SelectItem>
+                                    <SelectItem value="active" className="text-white hover:bg-white/20">Active</SelectItem>
+                                    <SelectItem value="inactive" className="text-white hover:bg-white/20">Inactive</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <span className="text-white/60 text-xs">Ordering:</span>
+                            <Select value={ordering} onValueChange={(v)=>{ setOrdering(v); setPage(1); }}>
+                                <SelectTrigger className="w-full sm:w-52 bg-white/10 border-white/20 text-white focus:border-white/40 focus:ring-white/20">
+                                    <SelectValue placeholder="Ordering" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white/10 backdrop-blur-xl border-white/20 text-white">
+                                    <SelectItem value='-start_date' className="text-white hover:bg-white/20">Start Date (Newest)</SelectItem>
+                                    <SelectItem value='start_date' className="text-white hover:bg-white/20">Start Date (Oldest)</SelectItem>
+                                    <SelectItem value='-end_date' className="text-white hover:bg-white/20">End Date (Newest)</SelectItem>
+                                    <SelectItem value='end_date' className="text-white hover:bg-white/20">End Date (Oldest)</SelectItem>
+                                    <SelectItem value='name' className="text-white hover:bg-white/20">Name A-Z</SelectItem>
+                                    <SelectItem value='-name' className="text-white hover:bg-white/20">Name Z-A</SelectItem>
+                                    <SelectItem value='-positions_count' className="text-white hover:bg-white/20">Most Positions</SelectItem>
+                                    <SelectItem value='positions_count' className="text-white hover:bg-white/20">Fewest Positions</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <div className="sm:ml-auto text-white/70 text-sm flex flex-col items-start sm:items-end gap-1">
+                        <span>{total} elections found</span>
+                        <div className="flex items-center gap-2 text-xs">
+                            <Select value={String(pageSize)} onValueChange={(v)=>{ setPageSize(Number(v)); setPage(1); }}>
+                                <SelectTrigger className="w-28 bg-white/10 border-white/20 text-white/70 focus:border-white/40 focus:ring-white/20">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white/10 backdrop-blur-xl border-white/20 text-white/80">
+                                    {[15,30,60].map(s => (
+                                        <SelectItem key={s} value={String(s)} className="text-white hover:bg-white/20">{s}/page</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <div className="flex gap-1">
+                                <button disabled={page===1} onClick={()=>setPage(p=>p-1)} className="px-2 py-1 rounded bg-white/10 disabled:opacity-40">Prev</button>
+                                <span className="px-1">{page}/{totalPages}</span>
+                                <button disabled={page===totalPages || !electionsData?.next} onClick={()=>setPage(p=>p+1)} className="px-2 py-1 rounded bg-white/10 disabled:opacity-40">Next</button>
+                            </div>
+                        </div>
+                        {isFetching && !isLoading && <span className="text-[10px] text-white/40">Updating...</span>}
+                    </div>
+                </div>
+            </div>
+
+            {/* Elections Table */}
+            <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/20 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="bg-white/10 text-white/70">
+                                <th className="px-4 py-3 text-left font-medium">Name</th>
+                                <th className="px-4 py-3 text-left font-medium whitespace-nowrap">Type</th>
+                                <th className="px-4 py-3 text-left font-medium whitespace-nowrap">Start</th>
+                                <th className="px-4 py-3 text-left font-medium whitespace-nowrap">End</th>
+                                <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Positions</th>
+                                <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Status</th>
+                                <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/10">
+                            {isLoading && Array.from({ length: 6 }).map((_,i)=>(
+                                <tr key={i} className="animate-pulse">
+                                    <td className="px-4 py-3" colSpan={7}>
+                                        <div className="h-4 w-2/3 rounded bg-white/10" />
+                                    </td>
+                                </tr>
+                            ))}
+                            {!isLoading && elections.length===0 && (
+                                <tr>
+                                    <td colSpan={7} className="px-4 py-10 text-center text-white/40">No elections found.</td>
+                                </tr>
+                            )}
+                            {!isLoading && elections.map(election => {
+                                const now = new Date();
+                                const start = new Date(election.start_date);
+                                const end = new Date(election.end_date);
+                                const ongoing = start <= now && now <= end;
+                                return (
+                                    <tr key={election.id} className="hover:bg-white/5 transition-colors">
+                                        <td className="px-4 py-3 align-top">
+                                            <div className="flex items-start gap-3">
+                                                <div className="p-1.5 rounded-md bg-gradient-to-r from-green-500 to-blue-600">
+                                                    <Trophy className="h-4 w-4 text-white" />
+                                                </div>
+                                                <div>
+                                                    <div className="font-medium text-white leading-tight">{election.name}</div>
+                                                    <div className="text-[11px] text-white/40">ID: {election.id.slice(0,8)}…</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-white/80 align-top capitalize">{election.type || 'general'}</td>
+                                        <td className="px-4 py-3 text-white/70 align-top whitespace-nowrap">{format(new Date(election.start_date), 'MMM dd, HH:mm')}</td>
+                                        <td className="px-4 py-3 text-white/70 align-top whitespace-nowrap">{format(new Date(election.end_date), 'MMM dd, HH:mm')}</td>
+                                        <td className="px-4 py-3 text-center text-white font-semibold align-top">{election.positions?.length || 0}</td>
+                                        <td className="px-4 py-3 text-center align-top">
+                                            {election.is_active ? (
+                                                ongoing ? <span className="px-2 py-1 rounded-full text-[11px] font-medium border bg-green-500/15 text-green-400 border-green-400/30">Live</span>
+                                                : (new Date() < start ? <span className="px-2 py-1 rounded-full text-[11px] font-medium border bg-amber-500/15 text-amber-400 border-amber-400/30">Scheduled</span>
+                                                : <span className="px-2 py-1 rounded-full text-[11px] font-medium border bg-purple-500/15 text-purple-400 border-purple-400/30">Concluded</span>)
+                                            ) : <span className="px-2 py-1 rounded-full text-[11px] font-medium border bg-gray-500/15 text-gray-400 border-gray-400/30">Inactive</span>}
+                                        </td>
+                                        <td className="px-4 py-3 text-center align-top">
+                                            <div className="flex items-center justify-center gap-1">
+                                                <button
+                                                    onClick={() => handleViewElection(election)}
+                                                    className="p-2 rounded-lg bg-white/10 border border-white/20 text-white/70 hover:text-white hover:bg-white/20 transition-all"
+                                                    title="View Details"
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleEditElection(election)}
+                                                    className="p-2 rounded-lg bg-white/10 border border-white/20 text-white/70 hover:text-white hover:bg-white/20 transition-all"
+                                                    title="Edit"
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    onClick={()=> toggleElectionMutation.mutate(election.id, {
+                                                        onSuccess: () => {
+                                                            toast.success(`Election ${election.is_active ? 'paused' : 'activated'} successfully`);
+                                                            queryClient.invalidateQueries({ queryKey: ['elections']});
+                                                        },
+                                                        onError: (error) => {
+                                                            toast.error(`Failed to toggle election status: ${error.message}`);
+                                                        }
+                                                    })}
+                                                    disabled={toggleElectionMutation.isPending}
+                                                    className="p-2 rounded-lg bg-white/10 border border-white/20 text-white/70 hover:text-white hover:bg-white/20 transition-all disabled:opacity-50"
+                                                    title={election.is_active ? 'Pause' : 'Activate'}
+                                                >
+                                                    {election.is_active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+                {isFetching && !isLoading && (
+                    <div className="px-4 py-2 text-[11px] text-white/40 border-t border-white/10">Updating…</div>
+                )}
             </div>
 
             {/* Create Election Modal */}
@@ -151,116 +328,7 @@ export default function ElectionsPage() {
     );
 }
 
-function ElectionCard({ 
-    election, 
-    onToggleStatus, 
-    onEditElection,
-    onViewElection,
-    isToggling 
-}: { 
-    election: Election; 
-    onToggleStatus: (id: string) => void;
-    onEditElection: () => void;
-    onViewElection: () => void;
-    isToggling: boolean;
-}) {
-    const isActive = election.is_active;
-    const now = new Date();
-    const startDate = new Date(election.start_date);
-    const endDate = new Date(election.end_date);
-    const isOngoing = startDate <= now && now <= endDate;
-
-    return (
-        <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/20 p-6 hover:bg-white/10 transition-all">
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-4">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className={cn(
-                        "p-2 rounded-lg flex-shrink-0",
-                        isActive 
-                            ? "bg-gradient-to-r from-green-500 to-green-600" 
-                            : "bg-gradient-to-r from-gray-500 to-gray-600"
-                    )}>
-                        <Trophy className="h-5 w-5 text-white" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                        <h3 className="text-base sm:text-lg font-semibold text-white truncate">{election.name}</h3>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            {isActive && isOngoing && (
-                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-400/30 whitespace-nowrap">
-                                    Live
-                                </span>
-                            )}
-                            {isActive && !isOngoing && now < startDate && (
-                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-400 border border-amber-400/30 whitespace-nowrap">
-                                    Scheduled
-                                </span>
-                            )}
-                            {!isActive && (
-                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-500/20 text-gray-400 border border-gray-400/30 whitespace-nowrap">
-                                    Inactive
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-                <div className="flex items-center gap-1">
-                    <button 
-                        onClick={onViewElection}
-                        className="p-2 rounded-lg bg-white/10 border border-white/20 text-white/70 hover:text-white hover:bg-white/20 transition-all"
-                    >
-                        <Eye className="h-4 w-4" />
-                    </button>
-                    <button 
-                        onClick={onEditElection}
-                        className="p-2 rounded-lg bg-white/10 border border-white/20 text-white/70 hover:text-white hover:bg-white/20 transition-all"
-                    >
-                        <Edit className="h-4 w-4" />
-                    </button>
-                </div>
-            </div>
-
-            <div className="space-y-3 mb-4">
-                <div className="flex items-center gap-2 text-white/70">
-                    <Calendar className="h-4 w-4" />
-                    <span className="text-sm">
-                        {format(startDate, 'MMM dd, yyyy')} - {format(endDate, 'MMM dd, yyyy')}
-                    </span>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center">
-                        <div className="text-lg font-semibold text-white">{election.positions?.length || 0}</div>
-                        <div className="text-xs text-white/60">Positions</div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-lg font-semibold text-white">0</div>
-                        <div className="text-xs text-white/60">Total Votes</div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex gap-2">
-                <button 
-                    onClick={onViewElection}
-                    className="flex-1 px-3 py-2 rounded-lg bg-blue-500/20 border border-blue-400/30 text-blue-400 hover:bg-blue-500/30 transition-all text-sm"
-                >
-                    View Details
-                </button>
-                <button 
-                    onClick={() => onToggleStatus(election.id)}
-                    disabled={isToggling}
-                    className={cn(
-                        "px-3 py-2 rounded-lg border transition-all text-sm disabled:opacity-50",
-                        isActive
-                            ? "bg-red-500/20 border-red-400/30 text-red-400 hover:bg-red-500/30"
-                            : "bg-green-500/20 border-green-400/30 text-green-400 hover:bg-green-500/30"
-                    )}
-                >
-                    {isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                </button>
-            </div>
-        </div>
-    );
-}
+// Card layout removed; table now used
 
 function CreateElectionModal({ 
     onClose, 
@@ -357,13 +425,15 @@ function CreateElectionModal({
                                 <FormItem>
                                     <FormLabel className="text-white/70">Election Type</FormLabel>
                                     <FormControl>
-                                        <select
-                                            {...field}
-                                            className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:border-white/40 focus:ring-2 focus:ring-white/20 focus:outline-none"
-                                        >
-                                            <option value="general">General</option>
-                                            <option value="specific">Specific (e.g Final Year Only)</option>
-                                        </select>
+                                        <Select value={field.value} onValueChange={field.onChange}>
+                                            <SelectTrigger className="w-full bg-white/10 border-white/20 text-white focus:border-white/40 focus:ring-white/20">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-white/10 backdrop-blur-xl border-white/20 text-white">
+                                                <SelectItem value="general" className="text-white hover:bg-white/20">General</SelectItem>
+                                                <SelectItem value="specific" className="text-white hover:bg-white/20">Specific (e.g Final Year Only)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

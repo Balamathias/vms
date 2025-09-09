@@ -102,22 +102,36 @@ export const voteCandidate = async (voteData: VoteFormData): Promise<StackRespon
   }
 }
 
-export const getElections = async (): Promise<PaginatedStackResponse<ElectionPositions[]>> => {
-  try {
-    const { data } = await stackbase.get("/elections/");
-    return data;
-  } catch (error: any) {
-    console.error("Error fetching elections:", error);
-    return {
-      message: error?.response?.error?.detail || "An error occurred while fetching elections.",
-      error: error?.response?.data,
-      status: error?.response?.status || 500,
-      data: [],
-      count: 0,
-      next: '',
-      previous: '',
-    };
-  }
+export const getElections = async (params?: {
+    q?: string;
+    type?: 'general' | 'specific';
+    is_active?: boolean;
+    ordering?: string;
+    page?: number;
+    page_size?: number;
+}): Promise<PaginatedStackResponse<ElectionPositions[]>> => {
+    try {
+        const searchParams = new URLSearchParams();
+        if (params) {
+            Object.entries(params).forEach(([k, v]) => {
+                if (v !== undefined && v !== null && v !== '') searchParams.append(k, String(v));
+            });
+        }
+        const qs = searchParams.toString();
+        const { data } = await stackbase.get(`/elections/${qs ? `?${qs}` : ''}`);
+        return data;
+    } catch (error: any) {
+        console.error("Error fetching elections:", error);
+        return {
+            message: error?.response?.error?.detail || "An error occurred while fetching elections.",
+            error: error?.response?.data,
+            status: error?.response?.status || 500,
+            data: [],
+            count: 0,
+            next: '',
+            previous: '',
+        };
+    }
 }
 
 export const getElection = async (electionId: string): Promise<StackResponse<ElectionPositions | null>> => {
