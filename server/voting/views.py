@@ -68,7 +68,7 @@ class ObtainTokenPairView(TokenObtainPairView, ResponseMixin):
         user_agent = request.META.get('HTTP_USER_AGENT', '')
         matric_number = getattr(request.data, 'get', lambda x, default: default)('matric_number', '').upper()
         
-        if self.detect_suspicious_activity(ip_address, matric_number):
+        """if self.detect_suspicious_activity(ip_address, matric_number):
             return self.response(
                 data={}, 
                 message="Suspicious activity detected. Please try again later.", 
@@ -80,7 +80,7 @@ class ObtainTokenPairView(TokenObtainPairView, ResponseMixin):
                 data={}, 
                 message="Account temporarily locked due to multiple failed attempts.", 
                 status_code=423
-            )
+            )"""
 
         # Hard deactivate check (in case already deactivated by prior failures)
         """if matric_number:
