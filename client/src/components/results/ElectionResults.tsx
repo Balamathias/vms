@@ -10,6 +10,7 @@ type Candidate = {
   student_name: string
   picture: string
   vote_count: number
+  photo?: string
 }
 
 type PositionResult = {
@@ -252,7 +253,7 @@ const ElectionResults = ({ data, showBackButton = false }: ElectionResultsProps)
                                 {/* Candidate Photo */}
                                 <div className="relative">
                                   <img 
-                                    src={candidate.picture} 
+                                    src={candidate?.photo || candidate.picture} 
                                     alt={candidate.student_name}
                                     className="w-16 h-16 rounded-xl object-cover border-2 border-white/20"
                                   />
