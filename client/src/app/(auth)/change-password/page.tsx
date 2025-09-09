@@ -69,7 +69,7 @@ const ChangePasswordPage = () => {
 
   const doSubmit = (data: ChangePasswordFormData) => {
     changePassword({
-      matric_number: data.matricNumber,
+      matric_number: data.matricNumber.trim(),
       old_password: data.oldPassword,
       new_password: data.newPassword,
       date_of_birth: formatDate(data.dateOfBirth)

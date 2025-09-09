@@ -49,7 +49,7 @@ const LoginPage = () => {
     })
 
     const onSubmit = (data: LoginFormData) => {
-        login({ matric_number: data.matricNumber, password: data.password }, {
+        login({ matric_number: data.matricNumber.trim(), password: data.password.trim() }, {
             onSuccess: (data) => {
                 if (data.error) {
                     form.setError('root', { message: data.message })
