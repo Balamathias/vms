@@ -1315,6 +1315,8 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
             raise ValidationError("You are not eligible to vote in this specific election.")
         if voter.status != 'active':
             raise ValidationError("Inactive users cannot vote.")
+        if not voter.has_changed_password:
+            raise ValidationError("You ARE NOT eligible to vote.")
         if Vote.objects.filter(voter=voter, position=position).exists():
             raise ValidationError("You have already voted for this position.")
 

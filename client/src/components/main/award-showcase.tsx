@@ -37,22 +37,14 @@ const AwardsShowcase = ({ winners = [] }: AwardsShowcaseProps) => {
       return <Medal className="w-10 h-10 text-green-300" />
     }
   }
-  
-  const fallbackImages = [
-    "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e",
-    "https://images.unsplash.com/photo-1560250097-0b93528c311a", 
-    "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2",
-    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d",
-    "https://images.unsplash.com/photo-1494790108755-2616b62e99a0",
-    "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e"
-  ]
+
     const transformedAwards: Award[] = winners.length > 0 
     ? winners.map((winner, index) => ({
         id: `${winner.position_name}-${winner.election_year}`,
         title: winner.position_name,
         recipient: winner.winner_name,
         year: winner.election_year,
-        image: winner.winner_picture || `${fallbackImages[index % fallbackImages.length]}?q=80&w=800&h=800&fit=crop`,
+        image: winner.winner_picture || '',
         icon: getPositionIcon(winner.position_name),
         voteCount: winner.vote_count,
         electionName: winner.election_name
@@ -133,8 +125,6 @@ const AwardsShowcase = ({ winners = [] }: AwardsShowcaseProps) => {
                     onError={(e) => {
                       // Fallback to a random fallback image if the current one fails
                       const target = e.target as HTMLImageElement;
-                      const randomIndex = Math.floor(Math.random() * fallbackImages.length);
-                      target.src = `${fallbackImages[randomIndex]}?q=80&w=800&h=800&fit=crop`;
                     }}
                   />
                   <div className="absolute bottom-6 left-6 z-20 text-white">
