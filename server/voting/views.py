@@ -844,6 +844,9 @@ class ElectionViewSet(viewsets.ModelViewSet, ResponseMixin):  # Changed from Rea
                     if pid not in position_winners:
                         student = Student.objects.get(id=vote['student_voted_for__id'])
                         picture_url = student.picture.url if student.picture else None
+                        candidate = Candidate.objects.filter(student=vote['student_voted_for__id']).first()
+                        if not picture_url and candidate and candidate.photo:
+                            picture_url = candidate.photo.url
                         
                         position_winners[pid] = {
                             'position_name': vote['position__name'],
