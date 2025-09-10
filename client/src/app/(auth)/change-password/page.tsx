@@ -140,11 +140,11 @@ const ChangePasswordPage = () => {
   return (
     <div className="relative flex min-h-screen items-center justify-center px-4 py-12 sm:px-8 lg:px-12 overflow-hidden">
       {/* Background */}
-      <div className="pointer-events-none absolute inset-0 -z-20">
+      {/* <div className="pointer-events-none absolute inset-0 -z-20">
         <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900" />
         <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-red-500/10 blur-3xl" />
         <div className="absolute bottom-0 -right-20 w-[32rem] h-[32rem] rounded-full bg-gradient-to-tr from-purple-500/15 via-pink-500/10 to-cyan-500/10 blur-3xl" />
-      </div>
+      </div> */}
 
       {/* Particles */}
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
