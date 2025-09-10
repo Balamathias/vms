@@ -1038,7 +1038,7 @@ class PositionViewSet(viewsets.ReadOnlyModelViewSet, ResponseMixin):
             data = [
                 {
                     'id': p.id,
-                    'label': p.name,
+                    'label': f'{p.name} - {p.election.name}',
                     'value': p.id,
                     'election_name': p.election.name,
                     'gender_restriction': p.gender_restriction,
