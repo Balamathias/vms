@@ -1178,13 +1178,13 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get('HTTP_USER_AGENT', '')
         
-        security_check = self.perform_security_checks(request.user, ip_address)
-        if security_check['blocked']:
-            return self.response(
-                data={}, 
-                message=security_check['reason'], 
-                status_code=403
-            )
+        # security_check = self.perform_security_checks(request.user, ip_address)
+        # if security_check['blocked']:
+        #     return self.response(
+        #         data={}, 
+        #         message=security_check['reason'], 
+        #         status_code=403
+        #     )
         
         serializer = self.get_serializer(data=request.data)
         try:
