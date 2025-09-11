@@ -1326,11 +1326,11 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
             raise ValidationError("You have already voted for this position.")
 
         # Additional abuse safeguard: prevent casting vote if another account already voted from same IP (race condition fallback)
-        ip_address = self.get_client_ip(self.request)
-        if ip_address:
-            window_start = timezone.now() - timedelta(hours=IP_VOTE_WINDOW_HOURS)
-            if VoteAttempt.objects.filter(ip_address=ip_address, success=True, timestamp__gte=window_start).exclude(voter=voter).exists():
-                raise ValidationError("Voting from multiple accounts is prohibited. A further attempt will block you out forever.")
+        # ip_address = self.get_client_ip(self.request)
+        # if ip_address:
+        #     window_start = timezone.now() - timedelta(hours=IP_VOTE_WINDOW_HOURS)
+        #     if VoteAttempt.objects.filter(ip_address=ip_address, success=True, timestamp__gte=window_start).exclude(voter=voter).exists():
+        #         raise ValidationError("Voting from multiple accounts is prohibited. A further attempt will block you out forever.")
         serializer.save(voter=voter)
 
     # ADMIN ONLY ROUTES
