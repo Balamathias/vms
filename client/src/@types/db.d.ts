@@ -238,6 +238,7 @@ export interface PositionAnalytics {
         student_voted_for__full_name: string;
         student_voted_for__gender: string;
         vote_count: number;
+        picture?: string
     }[];
     vote_timeline: { hour: number; count: number }[];
     voter_demographics: { voter__gender: string; count: number }[];

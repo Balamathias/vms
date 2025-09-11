@@ -2,10 +2,13 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { usePositionAnalytics, usePosition } from '@/services/client/api';
-import { ArrowLeft, Users, Vote, TrendingUp, Award, Clock, User, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Users, Vote, TrendingUp, Award, Clock, User, BarChart3, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import CertificatePreview from '@/components/admin/certificate-preview';
+import { downloadCertificateFromNode } from '@/lib/download-certificate';
+import React, { useRef } from 'react';
 
 const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#06B6D4', '#EC4899', '#8B5A2B'];
 
@@ -16,6 +19,7 @@ export default function PositionDetailPage() {
 
     const { data: positionData, isLoading: positionLoading } = usePosition(positionId);
     const { data: analyticsData, isLoading: analyticsLoading } = usePositionAnalytics(positionId);
+    const certRef = useRef<HTMLDivElement>(null);
 
     if (positionLoading || analyticsLoading) {
         return (
@@ -69,6 +73,20 @@ export default function PositionDetailPage() {
         color: COLORS[index % COLORS.length]
     }));
 
+    // Winner data for certificate
+    const topWinner = voteBreakdownData[0];
+    const winnerName = topWinner?.student_voted_for__full_name || '';
+    const winnerVotes = topWinner?.vote_count || 0;
+    const electionName = position.election_name || '';
+    const positionName = position.name || '';
+    const photoUrl = topWinner?.picture || '';
+    const dateText = format(new Date(), 'MMM dd, yyyy');
+
+    const handleDownloadCertificate = async () => {
+        if (!certRef.current) return;
+        await downloadCertificateFromNode(certRef.current, `${positionName}-${winnerName}.pdf`);
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -83,6 +101,16 @@ export default function PositionDetailPage() {
                     <h1 className="text-2xl sm:text-3xl font-bold text-white break-words">{position.name}</h1>
                     <p className="text-white/60 mt-1 text-sm sm:text-base break-words">Position Analytics - {position.election_name}</p>
                 </div>
+                {voteBreakdownData.length > 0 && (
+                    <button
+                        onClick={handleDownloadCertificate}
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white hover:bg-white/20 transition"
+                        title="Download Winner Certificate"
+                    >
+                        <Download className="h-4 w-4" />
+                        <span className="text-sm">Download Certificate</span>
+                    </button>
+                )}
             </div>
 
             {/* Overview Cards */}
@@ -362,6 +390,23 @@ export default function PositionDetailPage() {
                     </table>
                 </div>
             </div>
+
+            {/* Hidden certificate preview for PDF rendering */}
+            {voteBreakdownData.length > 0 && (
+                <div className="fixed -left-[9999px] top-0">
+                    <CertificatePreview
+                        ref={certRef}
+                        data={{
+                            winnerName,
+                            positionName,
+                            electionName,
+                            voteCount: winnerVotes,
+                            dateText,
+                            photoUrl,
+                        }}
+                    />
+                </div>
+            )}
         </div>
     );
 }

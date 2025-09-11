@@ -1,0 +1,127 @@
+"use client";
+
+import React, { forwardRef } from "react";
+
+export interface CertificateData {
+  winnerName: string;
+  positionName: string;
+  electionName: string;
+  voteCount?: number;
+  dateText?: string; // e.g. Sep 11, 2025
+  photoUrl?: string | null;
+}
+
+// A4 ratio container (approx 1.414). We'll render at 1240x1754 for good quality (150 DPI).
+export const CertificatePreview = forwardRef<HTMLDivElement, { data: CertificateData }>(
+  ({ data }, ref) => {
+    const {
+      winnerName,
+      positionName,
+      electionName,
+      voteCount,
+      dateText,
+      photoUrl,
+    } = data;
+
+    return (
+      <div
+        ref={ref}
+        style={{ width: 1240, height: 1754 }}
+        className="relative mx-auto bg-[#0b0b12] text-white rounded-xl overflow-hidden"
+      >
+        {/* Subtle gradient frame */}
+        <div className="absolute inset-0 p-8">
+          <div className="w-full h-full rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.04] via-white/[0.02] to-transparent" />
+        </div>
+
+        {/* Corner accents */}
+        <div className="absolute -left-24 -top-24 w-80 h-80 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 blur-3xl" />
+        <div className="absolute -right-24 -bottom-24 w-96 h-96 rounded-full bg-gradient-to-br from-pink-500/20 to-purple-500/20 blur-3xl" />
+
+        {/* Header */}
+        <div className="relative z-10 px-20 pt-20 text-center">
+          <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full border border-white/15 bg-white/5 text-white/80 text-sm tracking-wide">
+            Certificate of Achievement
+          </div>
+          <h1 className="mt-6 text-5xl font-semibold">
+            This is to certify that
+          </h1>
+        </div>
+
+        {/* Winner block */}
+        <div className="relative z-10 mt-10 px-20 flex items-center justify-center gap-8">
+          <div className="w-40 h-40 rounded-full border border-white/15 bg-white/5 overflow-hidden flex items-center justify-center text-4xl font-bold text-white/70">
+            {photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={photoUrl} alt={winnerName} className="w-full h-full object-cover" />
+            ) : (
+              winnerName
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase()
+            )}
+          </div>
+          <div className="text-center">
+            <div className="text-6xl font-extrabold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              {winnerName}
+            </div>
+            <div className="mt-4 text-xl text-white/80">
+              Winner, <span className="font-semibold text-white">{positionName}</span>
+            </div>
+            <div className="text-white/70">in the {electionName}</div>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="relative z-10 mt-12 px-20">
+          <div className="h-px w-full bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        </div>
+
+        {/* Meta */}
+        <div className="relative z-10 mt-10 px-20 grid grid-cols-2 gap-8">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-6">
+            <div className="text-white/60 text-sm">Election</div>
+            <div className="text-white text-2xl font-semibold">{electionName}</div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-6">
+            <div className="text-white/60 text-sm">Position</div>
+            <div className="text-white text-2xl font-semibold">{positionName}</div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-6">
+            <div className="text-white/60 text-sm">Total Votes</div>
+            <div className="text-white text-2xl font-semibold">{voteCount ?? "-"}</div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-6">
+            <div className="text-white/60 text-sm">Date</div>
+            <div className="text-white text-2xl font-semibold">{dateText ?? ""}</div>
+          </div>
+        </div>
+
+        {/* Signature Row */}
+        <div className="relative z-10 mt-16 px-20 grid grid-cols-2 gap-16">
+          <div className="pt-10">
+            <div className="h-px w-full bg-white/30" />
+            <div className="mt-2 text-white/80">Election Committee Chair</div>
+          </div>
+          <div className="pt-10 text-right">
+            <div className="h-px w-full bg-white/30" />
+            <div className="mt-2 text-white/80">Dean / Head of Department</div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="absolute bottom-10 left-0 right-0 px-20">
+          <div className="flex items-center justify-between text-white/50 text-sm">
+            <span>Generated by awards.lawsocietyabu.org</span>
+            <span>www.lawsocietyabu.org</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+);
+CertificatePreview.displayName = "CertificatePreview";
+
+export default CertificatePreview;
