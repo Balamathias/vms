@@ -238,7 +238,7 @@ const PositionDetailPage = () => {
                       )}
                     </h3>
                     {candidate?.alias && (
-                      <p className="text-xs leading-relaxed line-clamp-3 relative font-normal bg-gradient-to-r from-amber-300 via-orange-400 to-red-400 bg-clip-text text-transparent">
+                      <p className="font-medium text-xs leading-relaxed line-clamp-3 relative font-normal bg-gradient-to-r from-gray-50 via-gray-100 to-gray-50 bg-clip-text text-transparent drop-shadow-accent">
                       @{candidate.alias}
                       </p>
                     )}

@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation'
 const PositionsPage = () => {
   const [timeLeft, setTimeLeft] = useState('')
   const [timeProgress, setTimeProgress] = useState<number | null>(null) // percentage of remaining time
+  const [status, setStatus] = useState<'upcoming' | 'ongoing' | 'ended' | 'unknown'>('unknown')
   const router = useRouter()
 
   const { data: activeElection, isPending } = useActiveElection()
@@ -19,36 +20,47 @@ const PositionsPage = () => {
   useEffect(() => {
     const calculateTimeLeft = () => {
       const now = new Date()
+      const startDate = election?.start_date ? new Date(election.start_date) : null
       const endDate = election?.end_date ? new Date(election.end_date) : null
-      if (!endDate) {
-        setTimeLeft('')
-        setTimeProgress(null)
-        return
-      }
 
-      const diff = endDate.getTime() - now.getTime()
-      if (diff <= 0) {
-        setTimeLeft('Voting closed')
-        setTimeProgress(0)
-        return
-      }
+      // Default
+      let newStatus: 'upcoming' | 'ongoing' | 'ended' | 'unknown' = 'unknown'
+      setTimeProgress(null)
 
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-      setTimeLeft(`${days}d ${hours}h ${minutes}m left`)
+      if (startDate && now < startDate) {
+        const diff = startDate.getTime() - now.getTime()
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+        setTimeLeft(`Starts in ${days}d ${hours}h ${minutes}m`)
+        newStatus = 'upcoming'
+      } else if (endDate) {
+        const diff = endDate.getTime() - now.getTime()
+        if (diff <= 0) {
+          setTimeLeft('Voting closed')
+          setTimeProgress(0)
+          newStatus = 'ended'
+        } else {
+          const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+          const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+          setTimeLeft(`${days}d ${hours}h ${minutes}m left`)
 
-      // Progress (if start_date exists)
-      if (election?.start_date) {
-        const startDate = new Date(election.start_date)
-        const total = endDate.getTime() - startDate.getTime()
-        if (total > 0) {
-          const remainingPct = (diff / total) * 100
-            setTimeProgress(Math.min(100, Math.max(0, remainingPct)))
-        } else setTimeProgress(null)
+          if (startDate) {
+            const total = endDate.getTime() - startDate.getTime()
+            if (total > 0) {
+              const remainingPct = (diff / total) * 100
+              setTimeProgress(Math.min(100, Math.max(0, remainingPct)))
+            }
+          }
+          newStatus = 'ongoing'
+        }
       } else {
-        setTimeProgress(null)
+        setTimeLeft('') // Dates not configured
+        newStatus = 'unknown'
       }
+
+      setStatus(newStatus)
     }
 
     calculateTimeLeft()
@@ -91,6 +103,41 @@ const PositionsPage = () => {
     )
   }
   
+  const positionsCount = election?.positions?.length ?? 0
+
+  // No active election state
+  if (!isPending && !election) {
+    return (
+      <div className="min-h-screen px-4 sm:px-6 lg:px-8 my-10 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+          className="w-full max-w-xl text-center rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-8 shadow-xl"
+        >
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">No active election</h1>
+          <p className="mt-3 text-white/70 text-sm sm:text-base">
+            There’s currently no election running. Please check back later or explore recent results.
+          </p>
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <button
+              onClick={() => router.push('/')}
+              className="rounded-lg border border-white/15 bg-white/10 hover:bg-white/15 px-4 py-2 text-sm font-medium text-white/80 hover:text-white transition-colors"
+            >
+              Back to Home
+            </button>
+            <button
+              onClick={() => router.push('/results')}
+              className="rounded-lg border border-amber-400/25 bg-amber-500/10 hover:bg-amber-500/15 px-4 py-2 text-sm font-semibold text-amber-200 transition-colors"
+            >
+              View Results
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen px-4 sm:px-6 lg:px-8 my-8 sm:my-10">
       {/* Light, less intrusive background accents */}
@@ -119,7 +166,7 @@ const PositionsPage = () => {
         </motion.p>
       </div>
 
-      {/* Slim Election Info Bar (less clutter) */}
+      {/* Election Info Bar */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -129,14 +176,21 @@ const PositionsPage = () => {
         <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl px-5 py-4 shadow-lg">
           <div className="flex flex-wrap items-center gap-3">
             {/* Time chip */}
-            <div className="flex items-center gap-2 rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-200">
-              <Clock className="h-4 w-4" />
-              <span aria-live="polite">{timeLeft || 'Calculating…'}</span>
-            </div>
+            {timeLeft ? (
+              <div className="flex items-center gap-2 rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-200">
+                <Clock className="h-4 w-4" />
+                <span aria-live="polite">{timeLeft}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/70">
+                <Clock className="h-4 w-4" />
+                <span aria-live="polite">Dates not set</span>
+              </div>
+            )}
             {/* Positions chip */}
             <div className="flex items-center gap-2 rounded-lg border border-blue-400/25 bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-200">
               <BarChart className="h-4 w-4" />
-              <span>{election?.positions.length || 0} Positions</span>
+              <span>{positionsCount} Position{positionsCount === 1 ? '' : 's'}</span>
             </div>
             <div className="ml-auto flex items-center gap-3">
               <button
@@ -148,7 +202,7 @@ const PositionsPage = () => {
             </div>
           </div>
           {/* Progress bar (hidden if no start_date) */}
-          {timeProgress !== null && (
+          {timeProgress !== null && status !== 'upcoming' && (
             <div className="flex items-center gap-3">
               <div className="flex-1 h-2 rounded-full bg-white/10 overflow-hidden">
                 <div
@@ -162,19 +216,73 @@ const PositionsPage = () => {
           )}
         </div>
       </motion.div>
+
+      {/* Status callouts and empty states */}
+      {status === 'upcoming' && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.25 }}
+          className="relative z-10 mx-auto mb-8 w-full max-w-5xl rounded-xl border border-blue-300/20 bg-blue-400/10 p-4 text-blue-100"
+        >
+          Voting hasn’t started yet. Please check back when the election begins.
+        </motion.div>
+      )}
+      {status === 'ended' && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.25 }}
+          className="relative z-10 mx-auto mb-8 w-full max-w-5xl rounded-xl border border-amber-300/20 bg-amber-400/10 p-4 text-amber-100"
+        >
+          Voting is closed. You can still explore the results.
+        </motion.div>
+      )}
       
       {/* Positions List */}
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.6 }}
-        className="relative z-10"
-      >
-        <PositionList 
-          positions={election?.positions || []}
-          electionName={election?.name || 'Current Election'}
-        />
-      </motion.div>
+      {positionsCount > 0 ? (
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="relative z-10"
+        >
+          <PositionList
+            positions={election?.positions || []}
+            electionName={election?.name || 'Current Election'}
+          />
+        </motion.div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.25 }}
+          className="relative z-10 mx-auto mt-4 w-full max-w-3xl rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-8 text-center shadow-lg"
+        >
+          <h2 className="text-lg sm:text-xl font-semibold text-white">No positions available</h2>
+          <p className="mt-2 text-sm text-white/70">
+            {status === 'upcoming'
+              ? 'Positions will appear once the election begins.'
+              : status === 'ended'
+                ? 'This election is closed. View results to see the winners.'
+                : 'There are no positions configured yet.'}
+          </p>
+          <div className="mt-5 flex justify-center gap-3">
+            <button
+              onClick={() => router.push('/results')}
+              className="rounded-lg border border-white/15 bg-white/10 hover:bg-white/15 px-4 py-2 text-sm font-medium text-white/80 hover:text-white transition-colors"
+            >
+              View Results
+            </button>
+            <button
+              onClick={() => router.push('/')}
+              className="rounded-lg border border-amber-400/25 bg-amber-500/10 hover:bg-amber-500/15 px-4 py-2 text-sm font-semibold text-amber-200 transition-colors"
+            >
+              Back Home
+            </button>
+          </div>
+        </motion.div>
+      )}
     </div>
   )
 }
