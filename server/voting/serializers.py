@@ -321,10 +321,14 @@ class ChangePasswordSerializer(serializers.Serializer):
 
         user = Student.objects.filter(matric_number=matric).first()
 
+
         if not user:
             logger.warning(f"[CHANGE_PASSWORD] Matric not found matric={matric}")
             raise serializers.ValidationError("User with this matric number does not exist.")
 
+        if user.level in { 500 }:
+            raise serializers.ValidationError("Time elapsed Gee! Please check back again.")
+        
         if user.has_changed_password:
             logger.warning(f"[CHANGE_PASSWORD] Attempt to change already changed password matric={matric}")
             raise serializers.ValidationError("Password has already been changed previously.")
