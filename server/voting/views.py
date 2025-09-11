@@ -1238,6 +1238,8 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
                     )
                 except Position.DoesNotExist:
                     pass
+
+            print(f"Validation error during voting: {str(e)}")
             
             return self.response(data={}, message=str(e), status_code=400)
         except Exception as e:
