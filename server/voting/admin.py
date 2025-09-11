@@ -32,7 +32,7 @@ class StudentAdmin(UserAdmin):
         }),
     )
     
-    readonly_fields = ('date_joined', 'last_login', 'id', 'picture_preview', 'has_changed_password')
+    readonly_fields = ('date_joined', 'last_login', 'id', 'picture_preview',)
     
     def is_candidate_indicator(self, obj):
         from .models import Candidate
