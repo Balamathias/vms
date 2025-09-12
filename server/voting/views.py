@@ -1178,13 +1178,13 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
         ip_address = self.get_client_ip(request)
         user_agent = request.META.get('HTTP_USER_AGENT', '')
         
-        # security_check = self.perform_security_checks(request.user, ip_address)
-        # if security_check['blocked']:
-        #     return self.response(
-        #         data={}, 
-        #         message=security_check['reason'], 
-        #         status_code=403
-        #     )
+        security_check = self.perform_security_checks(request.user, ip_address)
+        if security_check['blocked']:
+            return self.response(
+                data={}, 
+                message=security_check['reason'], 
+                status_code=403
+            )
         
         serializer = self.get_serializer(data=request.data)
         try:
@@ -1273,19 +1273,24 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
             }
 
         # Enforce single-account-per-IP voting: block if any other voter has successful vote attempts from this IP.
-        """window_start = timezone.now() - timedelta(hours=IP_VOTE_WINDOW_HOURS)
+        window_start = timezone.now() - timedelta(hours=IP_VOTE_WINDOW_HOURS)
         other_voter_exists = VoteAttempt.objects.filter(
             ip_address=ip_address,
             success=True,
             timestamp__gte=window_start
         ).exclude(voter=user).exists()
+        
         if other_voter_exists:
             return {
                 'blocked': True,
                 'reason': 'Multiple accounts voting detected. This is not allowed. Further attempts will have you blocked forever.'
-            }"""
+            }
         
         current_hour = timezone.now().hour
+<<<<<<< HEAD
+=======
+
+>>>>>>> c0fb79717e51ef73077e17dd5dc80e28fd00c788
         """if hasattr(settings, 'VOTING_ALLOWED_HOURS'):
             allowed_hours = getattr(settings, 'VOTING_ALLOWED_HOURS', range(6, 23))  # 6 AM to 11 PM default
             if current_hour not in allowed_hours:
