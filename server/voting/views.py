@@ -1194,6 +1194,26 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
         try:
             serializer.is_valid(raise_exception=True)
 
+            if serializer.errors:
+                flat_errors = []
+                errors_data = serializer.errors
+                if isinstance(errors_data, dict):
+                    iterable = errors_data.items()
+                else:
+                    iterable = [("non_field_errors", msg) for msg in errors_data]
+                for field, messages in iterable:
+                    if isinstance(messages, (list, tuple)):
+                        for m in messages:
+                            flat_errors.append(f"{m}")
+                    else:
+                        flat_errors.append(f"{messages}")
+                primary_message = flat_errors[0] if flat_errors else "Invalid request."
+                return self.response(
+                    data={"errors": flat_errors},
+                    message=primary_message,
+                    status_code=400
+                )
+
             from .models import VoteAttempt
             position = serializer.validated_data['position']
 
