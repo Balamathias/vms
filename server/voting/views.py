@@ -827,6 +827,7 @@ class ElectionViewSet(viewsets.ModelViewSet, ResponseMixin):  # Changed from Rea
         Returns recent winners from concluded elections for the showcase.
         """
         try:
+            raise
             # Get the most recent concluded elections
             concluded_elections = Election.objects.filter(
                 end_date__lt=timezone.now()
