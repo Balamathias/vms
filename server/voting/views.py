@@ -1287,10 +1287,7 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
             }
         
         current_hour = timezone.now().hour
-<<<<<<< HEAD
-=======
-
->>>>>>> c0fb79717e51ef73077e17dd5dc80e28fd00c788
+        
         """if hasattr(settings, 'VOTING_ALLOWED_HOURS'):
             allowed_hours = getattr(settings, 'VOTING_ALLOWED_HOURS', range(6, 23))  # 6 AM to 11 PM default
             if current_hour not in allowed_hours:
