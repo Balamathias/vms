@@ -1286,13 +1286,13 @@ class VoteViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, ResponseMixi
             }"""
         
         current_hour = timezone.now().hour
-        if hasattr(settings, 'VOTING_ALLOWED_HOURS'):
+        """if hasattr(settings, 'VOTING_ALLOWED_HOURS'):
             allowed_hours = getattr(settings, 'VOTING_ALLOWED_HOURS', range(6, 23))  # 6 AM to 11 PM default
             if current_hour not in allowed_hours:
                 return {
                     'blocked': True,
                     'reason': 'Voting is only allowed during designated hours.'
-                }
+                }"""
         
         return {'blocked': False, 'reason': ''}
 
