@@ -14,6 +14,7 @@ that makes it possible for clients to communicate with the legalX application.
 
 import csv
 import io
+from typing import cast
 from django.http import HttpResponse
 from django.utils import timezone
 from django.db.models import Count, Q
@@ -780,9 +781,12 @@ class ElectionViewSet(viewsets.ModelViewSet, ResponseMixin):  # Changed from Rea
 
     @action(detail=True, methods=['get'], url_path='results', permission_classes=[IsAuthenticated])
     def results(self, request, pk=None):
-        election = self.get_object()
+        election = cast(Election, self.get_object())
         if election.end_date > timezone.now() and not request.user.is_staff:
             return self.response(error={"detail": "Results not available until the election ends."}, status_code=403)
+
+        if election.id in { 'd9d3b854-e262-4d85-a1aa-636ab0ab506b' }:
+            return self.response(error={"detail": "Results not available for this specific election yet 🥲."}, status_code=403)
 
         vote_data = Vote.objects.filter(position__election=election) \
             .select_related('student_voted_for') \
