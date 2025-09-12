@@ -60,6 +60,7 @@ export const getPositions = async (params?: {
 export const getPosition = async (positionId: string): Promise<StackResponse<PositionCandidates | null>> => {
     try {
         const { data } = await stackbase.get(`/positions/${positionId}/`);
+        console.log(data.data)
         return data;
     } catch (error: any) {
         console.error("Error fetching position:", error);
