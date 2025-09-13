@@ -765,9 +765,6 @@ class ElectionViewSet(viewsets.ModelViewSet, ResponseMixin):  # Changed from Rea
         Returns details of a specific election.
         """
         instance = self.get_object()
-
-        if True:
-            return self.response(data={}, message="Election details retrieved successfully.")
             
         serializer = self.get_serializer(instance)
         return self.response(data=serializer.data, message="Election details retrieved successfully.")

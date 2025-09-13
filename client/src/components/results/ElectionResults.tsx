@@ -100,7 +100,7 @@ const ElectionResults = ({ data, showBackButton = false }: ElectionResultsProps)
   }, {} as Record<string, PositionResult>)
   
   return (
-    <div className="min-h-screen bg-gradient-to-br p-4 md:p-8 py-10 hidden">
+    <div className="min-h-screen bg-gradient-to-br p-4 md:p-8 py-10">
       <div className="max-w-6xl mx-auto">        {/* Header */}
         <motion.div 
           className="mb-12 text-center relative"
