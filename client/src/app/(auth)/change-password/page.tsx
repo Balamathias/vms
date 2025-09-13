@@ -19,7 +19,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar'
 
 const changePasswordSchema = z.object({
-  matricNumber: z.string().min(6, 'Matric number must be at least 6 characters').regex(/^[A-Z0-9\/]+$/i, 'Invalid matric number format'),
+  matricNumber: z.string().trim().min(6, 'Matric number must be at least 6 characters').regex(/^[A-Z0-9\/]+$/i, 'Invalid matric number format'),
   oldPassword: z.string().min(3, 'Old password must be at least 3 characters'),
   newPassword: z.string().min(6, 'New password must be at least 6 characters'),
   confirmPassword: z.string().min(6, 'Please confirm your new password'),
