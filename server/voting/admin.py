@@ -4,7 +4,7 @@ from django.utils.html import format_html
 from django.db.models import Count
 from django.utils import timezone
 from datetime import timedelta
-from .models import Student, Election, Position, Candidate, Vote, IPRestriction, LoginAttempt, VoteAttempt
+from .models import Student, Election, Position, Candidate, Vote, IPRestriction, LoginAttempt, VoteAttempt, DeviceFingerprint, PasswordChangeAttempt
 
 
 @admin.register(Student)
@@ -308,3 +308,28 @@ class SecurityDashboard:
 admin.site.site_header = "Voting Management System"
 admin.site.site_title = "VMS Admin"
 admin.site.index_title = "Welcome to VMS Administration"
+
+
+@admin.register(DeviceFingerprint)
+class DeviceFingerprintAdmin(admin.ModelAdmin):
+    list_display = ('short_hash', 'bound_to', 'first_seen', 'last_seen', 'bound_at', 'last_ip')
+    search_fields = ('fingerprint_hash', 'bound_to__matric_number', 'bound_to__full_name')
+    list_filter = ('bound_to',)
+    readonly_fields = ('first_seen', 'last_seen', 'bound_at')
+
+    def short_hash(self, obj):
+        return obj.fingerprint_hash[:12]
+    short_hash.short_description = 'Fingerprint'
+
+
+@admin.register(PasswordChangeAttempt)
+class PasswordChangeAttemptAdmin(admin.ModelAdmin):
+    list_display = ('matric_number', 'short_fp', 'success', 'timestamp', 'ip_address')
+    list_filter = ('success', 'timestamp')
+    search_fields = ('matric_number', 'fingerprint_hash', 'ip_address', 'user_agent')
+    readonly_fields = ('student', 'matric_number', 'fingerprint_hash', 'user_agent', 'ip_address', 'success', 'reason', 'timestamp')
+    date_hierarchy = 'timestamp'
+
+    def short_fp(self, obj):
+        return (obj.fingerprint_hash or '')[:12]
+    short_fp.short_description = 'Fingerprint'

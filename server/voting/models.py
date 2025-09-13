@@ -4,6 +4,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.core.validators import MinLengthValidator
 
 
 class StudentManager(BaseUserManager):
@@ -238,3 +239,53 @@ class VoteAttempt(models.Model):
     
     class Meta:
         ordering = ['-timestamp']
+
+
+class DeviceFingerprint(models.Model):
+    """Represents a device fingerprint that can be bound to a single student
+    upon successful password change. We only store a hash, never the raw
+    fingerprint value.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    fingerprint_hash = models.CharField(
+        max_length=64,
+        unique=True,
+        db_index=True,
+        validators=[MinLengthValidator(32)],
+        help_text="SHA-256 (hex) of the device fingerprint"
+    )
+    bound_to = models.ForeignKey(
+        Student, on_delete=models.SET_NULL, null=True, blank=True, related_name='device_fingerprints'
+    )
+    first_seen = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(auto_now=True)
+    bound_at = models.DateTimeField(null=True, blank=True)
+    last_user_agent = models.TextField(blank=True, default='')
+    last_ip = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-last_seen']
+
+    def __str__(self):
+        owner = self.bound_to.matric_number if self.bound_to else 'unbound'
+        return f"FP[{self.fingerprint_hash[:8]}…] → {owner}"
+
+
+class PasswordChangeAttempt(models.Model):
+    """Log each password change attempt for auditing and abuse detection."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.SET_NULL, null=True, blank=True)
+    matric_number = models.CharField(max_length=20, db_index=True)
+    fingerprint_hash = models.CharField(max_length=64, db_index=True)
+    user_agent = models.TextField(blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    success = models.BooleanField(default=False)
+    reason = models.TextField(blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        status = 'OK' if self.success else 'FAIL'
+        return f"PWD[{status}] {self.matric_number} fp={self.fingerprint_hash[:8]}…"
