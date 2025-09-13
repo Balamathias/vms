@@ -62,8 +62,8 @@ const ResultsHub = ({ latestResults, pastElections }: ResultsHubProps) => {  con
   }
   
   return (
-    <div className="relative">
-      {/* <ElectionResults data={latestResults} /> */}
+    <div className="relative hidden">
+      <ElectionResults data={latestResults} />
       
       {/* Past Elections Button */}
       {pastElections.length > 0 && (
