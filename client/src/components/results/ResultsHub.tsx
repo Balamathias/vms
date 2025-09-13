@@ -63,12 +63,12 @@ const ResultsHub = ({ latestResults, pastElections }: ResultsHubProps) => {  con
   
   return (
     <div className="relative">
-      <ElectionResults data={latestResults} />
+      {/* <ElectionResults data={latestResults} /> */}
       
       {/* Past Elections Button */}
       {pastElections.length > 0 && (
         <motion.div 
-          className="fixed bottom-8 right-8 z-40"
+          className="fixed bottom-8 right-8 z-40 hidden"
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 1 }}
