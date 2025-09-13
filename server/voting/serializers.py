@@ -6,9 +6,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer as De
 from django.contrib.auth.password_validation import validate_password
 import logging
 
-from .models import Student, Election, Position, Candidate, Vote, DeviceFingerprint, PasswordChangeAttempt
-from django.db import transaction
-import hashlib
+from .models import Student, Election, Position, Candidate, Vote
 
 logger = logging.getLogger(__name__)
 
@@ -315,8 +313,6 @@ class ChangePasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
     date_of_birth = serializers.DateField()
-    # Accept device fingerprint via request header or explicit field as fallback
-    device_fingerprint = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     def validate(self, attrs):
         matric = attrs.get('matric_number', '').upper()
@@ -324,20 +320,6 @@ class ChangePasswordSerializer(serializers.Serializer):
         logger.info(f"[CHANGE_PASSWORD] Attempt start matric={matric}")
 
         user = Student.objects.filter(matric_number=matric).first()
-
-        # Extract device fingerprint from header or payload
-        # request = self.context.get('request')
-        # raw_fp = None
-        # if request:
-        #     raw_fp = request.META.get('HTTP_X_DEVICE_FINGERPRINT') or request.headers.get('X-Device-Fingerprint')
-        # if not raw_fp:
-        #     raw_fp = (attrs.get('device_fingerprint') or '').strip()
-        # if not raw_fp:
-        #     logger.warning(f"[CHANGE_PASSWORD] Missing device fingerprint matric={matric}")
-        #     raise serializers.ValidationError("Device fingerprint is required.")
-        # # Hash the fingerprint to avoid storing raw values
-        # fp_hash = hashlib.sha256(raw_fp.encode('utf-8')).hexdigest()
-        # attrs['fp_hash'] = fp_hash
 
 
         if not user:
@@ -350,16 +332,6 @@ class ChangePasswordSerializer(serializers.Serializer):
         if user.has_changed_password:
             logger.warning(f"[CHANGE_PASSWORD] Attempt to change already changed password matric={matric}")
             raise serializers.ValidationError("Password has already been changed previously.")
-
-        # Enforce device uniqueness: a device can only be used to change password for one account
-        # existing_fp = DeviceFingerprint.objects.filter(fingerprint_hash=fp_hash).first()
-        # if existing_fp and existing_fp.bound_to and existing_fp.bound_to != user:
-        #     logger.warning(
-        #         f"[CHANGE_PASSWORD] Device already bound to {existing_fp.bound_to.matric_number}, attempted for {matric}"
-        #     )
-        #     raise serializers.ValidationError(
-        #         "This device has already been used to change a different account's password."
-        #     )
         
         if not user.check_password(attrs['old_password']):
             logger.warning(f"[CHANGE_PASSWORD] Old password mismatch matric={matric}")
@@ -395,105 +367,8 @@ class ChangePasswordSerializer(serializers.Serializer):
         if not new_password:
             logger.error(f"[CHANGE_PASSWORD] No new password provided matric={matric}")
             raise serializers.ValidationError("New password not provided.")
-        
-        # Device fingerprint info
-        # request = self.context.get('request')
-        # fp_hash = validated.get('fp_hash')
-        # ip = None
-        # ua = ''
-        # if request:
-        #     # Try best-effort client IP from common headers (behind Vercel/proxies)
-        #     ip = request.META.get('HTTP_X_FORWARDED_FOR') or request.META.get('REMOTE_ADDR')
-        #     if ip and ',' in ip:
-        #         ip = ip.split(',')[0].strip()
-        #     ua = request.META.get('HTTP_USER_AGENT', '')
-
-        with transaction.atomic():
-            user.set_password(new_password)
-            user.has_changed_password = True
-            user.save(update_fields=['password', 'has_changed_password'])
-
-            # Bind or create the device fingerprint
-            # fp_obj, created = DeviceFingerprint.objects.get_or_create(
-            #     fingerprint_hash=fp_hash,
-            #     defaults={'bound_to': user, 'last_user_agent': ua, 'last_ip': ip, 'bound_at': timezone.now()},
-            # )
-            # # If exists but not bound, bind it now
-            # if not created:
-            #     # If unbound, bind to this user
-            #     if fp_obj.bound_to is None:
-            #         fp_obj.bound_to = user
-            #         fp_obj.bound_at = timezone.now()
-            #     fp_obj.last_user_agent = ua
-            #     fp_obj.last_ip = ip
-            #     fp_obj.save(update_fields=['bound_to', 'bound_at', 'last_user_agent', 'last_ip', 'last_seen'])
-
-            # # Log attempt success
-            # PasswordChangeAttempt.objects.create(
-            #     student=user,
-            #     matric_number=matric,
-            #     fingerprint_hash=fp_hash,
-            #     user_agent=ua,
-            #     ip_address=ip,
-            #     success=True,
-            #     reason=''
-            # )
-
+        user.set_password(new_password)
+        user.has_changed_password = True
+        user.save(update_fields=['password', 'has_changed_password'])
         logger.info(f"[CHANGE_PASSWORD] Password changed successfully matric={matric}")
         return user
-
-    def run_validation(self, data=...):
-        """Override run_validation to ensure failed attempts are logged with fingerprint when possible."""
-        request = self.context.get('request')
-        raw_fp = None
-        if request:
-            raw_fp = request.META.get('HTTP_X_DEVICE_FINGERPRINT') or request.headers.get('X-Device-Fingerprint')
-        if not raw_fp and isinstance(data, dict):
-            raw_fp = (data.get('device_fingerprint') or '').strip()
-        fp_hash = None
-        if raw_fp:
-            try:
-                fp_hash = hashlib.sha256(raw_fp.encode('utf-8')).hexdigest()
-            except Exception:
-                fp_hash = None
-        try:
-            return super().run_validation(data)
-        except serializers.ValidationError as exc:
-            # Attempt to log the failure with as much context as possible
-            matric = ''
-            if isinstance(data, dict):
-                matric = (data.get('matric_number') or '').upper()
-            ip = None
-            ua = ''
-            if request:
-                ip = request.META.get('HTTP_X_FORWARDED_FOR') or request.META.get('REMOTE_ADDR')
-                if ip and ',' in ip:
-                    ip = ip.split(',')[0].strip()
-                ua = request.META.get('HTTP_USER_AGENT', '')
-            try:
-                if isinstance(exc.detail, dict):
-                    parts = []
-                    for k, v in exc.detail.items():
-                        if isinstance(v, (list, tuple)):
-                            parts.extend([str(m) for m in v])
-                        else:
-                            parts.append(str(v))
-                else:
-                    if isinstance(exc.detail, (list, tuple)):
-                        parts = [str(m) for m in exc.detail]
-                    else:
-                        parts = [str(exc.detail)]
-                reason_text = '; '.join(parts)[:500]
-                PasswordChangeAttempt.objects.create(
-                    student=Student.objects.filter(matric_number=matric).first(),
-                    matric_number=matric or 'UNKNOWN',
-                    fingerprint_hash=fp_hash or 'MISSING',
-                    user_agent=ua,
-                    ip_address=ip,
-                    success=False,
-                    reason=reason_text
-                )
-            except Exception:
-                # Logging must not break API flow
-                logger.exception("Failed to log password change attempt")
-            raise
