@@ -29,6 +29,8 @@ export default function PositionsPage() {
     const [pageSize, setPageSize] = useState<number>(30);
     const queryClient = useQueryClient();
 
+    const router = useRouter();
+
     const { data: positionsData, isLoading: positionsLoading, isFetching: positionsFetching } = useQuery<import("@/@types/generics").PaginatedStackResponse<Position[]>>({
         queryKey: ['positions', { selectedElection, selectedPositionType, genderRestriction, search, ordering, page, pageSize }],
         queryFn: () => getPositions({
@@ -276,7 +278,7 @@ export default function PositionsPage() {
                                     <td className="px-4 py-3 text-center align-top">
                                         <div className="flex items-center justify-center gap-1">
                                             <button
-                                                onClick={() => window.location.href = `/admin/positions/${p.id}`}
+                                                onClick={() => router.push(`/admin/positions/${p.id}`)}
                                                 className="p-2 rounded-lg bg-white/10 border border-white/20 text-white/70 hover:text-white hover:bg-white/20 transition-all"
                                                 title="View Analytics"
                                             >

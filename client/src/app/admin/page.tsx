@@ -34,7 +34,7 @@ export default function AdminDashboard() {
             <div className="text-center py-12">
                 <div className="text-red-400 mb-4">Error loading dashboard data</div>
                 <button 
-                    onClick={() => window.location.reload()}
+                    onClick={() => router.refresh()}
                     className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/20 transition-all"
                 >
                     Retry
