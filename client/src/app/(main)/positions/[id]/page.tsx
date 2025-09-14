@@ -225,11 +225,9 @@ const PositionDetailPage = () => {
                     <div className="absolute -inset-[40%] animate-[spin_12s_linear_infinite] bg-[conic-gradient(from_0deg,var(--tw-gradient-stops))] from-transparent via-orange-400/30 to-transparent" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
                   </div>
-                  <Image 
+                  <img 
                     src={candidate?.photo || candidate.picture || ''} 
                     alt={candidate?.full_name}
-                    width={800}
-                    height={800}
                     className={`w-full h-full object-cover object-center transition-transform duration-700 ${hoveredCard===candidate.id ? 'scale-105' : 'scale-100'}`}
                   />
                   {/* Name + subtle underline flame */}
@@ -380,12 +378,10 @@ const PositionDetailPage = () => {
                       animate={{ opacity: 1, y: 0 }}
                     >
                       <div className="relative group/image">
-                        <Image
+                        <img
                           src={getSelectedCandidateInfo()?.photo || getSelectedCandidateInfo()?.picture || ''}
                           alt={getSelectedCandidateInfo()?.full_name || ''}
                           className="w-16 h-16 rounded-lg object-cover ring-1 ring-white/20"
-                          width={800}
-                          height={800}
                         />
                         <button
                           type="button"
@@ -460,12 +456,10 @@ const PositionDetailPage = () => {
                   <X className="h-5 w-5" />
                 </button>
                 <div className="rounded-2xl overflow-hidden border border-white/15 bg-black/40">
-                  <Image
+                  <img
                     src={fullImageCandidate?.photo || fullImageCandidate?.picture}
                     alt={fullImageCandidate.full_name}
                     className="w-full h-[70vh] object-contain bg-black/50"
-                    width={400}
-                    height={400}
                   />
                 </div>
                 <div className="mt-3 text-center">
