@@ -328,6 +328,17 @@ class ChangePasswordSerializer(serializers.Serializer):
 
         # if user.level in { 500 }:
         #     raise serializers.ValidationError("Time elapsed Gee! Please check back again.")
+
+        now = timezone.now()
+        if Election.objects.filter(
+            is_active=True,
+            start_date__lte=now,
+            end_date__gte=now
+        ).exists():
+            logger.warning(f"[CHANGE_PASSWORD] Blocked due to ongoing election matric={matric}")
+            raise serializers.ValidationError(
+            "Changing passwords program has been closed due to ongoing elections, thus is your eligibility to vote at this time."
+            )
         
         if user.has_changed_password:
             logger.warning(f"[CHANGE_PASSWORD] Attempt to change already changed password matric={matric}")
