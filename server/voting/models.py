@@ -158,7 +158,7 @@ class Position(models.Model):
         return Student.objects.filter(
             candidate__position=self,
             status='active',
-            has_changed_password=True
+            # has_changed_password=True
         ).distinct()
 
 
