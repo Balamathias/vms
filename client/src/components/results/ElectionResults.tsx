@@ -296,7 +296,7 @@ const ElectionResults = ({ data, showBackButton = false }: ElectionResultsProps)
                                       </p>
                                     </div>
                                     
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-3 relative">
                                       <div className="text-right">
                                         <p className="text-2xl font-bold text-white">
                                           {candidate.vote_count}
@@ -309,7 +309,7 @@ const ElectionResults = ({ data, showBackButton = false }: ElectionResultsProps)
                                       {/* Certificate Download Button */}
                                       {rank <= 3 && (
                                         <motion.button
-                                          className="flex items-center gap-2 bg-transparent text-white p-0 rounded-lg shadow-lg hover:from-amber-600 hover:to-yellow-700 transition-all duration-200"
+                                          className="flex items-center gap-2 bg-transparent text-white p-0 rounded-lg shadow-lg hover:from-amber-600 hover:to-yellow-700 transition-all duration-200 absolute overflow-hidden group right-1 top-5"
                                           onClick={() => generateCertificate(candidate, positionResult, rank)}
                                           whileHover={{ scale: 1.05 }}
                                           whileTap={{ scale: 0.95 }}
