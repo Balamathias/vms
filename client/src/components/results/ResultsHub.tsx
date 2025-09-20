@@ -5,15 +5,16 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, Calendar, Trophy } from 'lucide-react'
 import ElectionResults from './ElectionResults'
 import PastElections from './PastElections'
-import { ElectionPositions } from '@/@types/db'
+import { ElectionPositions, Student } from '@/@types/db'
 import { useRouter } from 'next/navigation'
 
 type ResultsHubProps = {
   latestResults: any
-  pastElections: ElectionPositions[]
+  pastElections: ElectionPositions[],
+  user?: Student
 }
 
-const ResultsHub = ({ latestResults, pastElections }: ResultsHubProps) => {  const [currentView, setCurrentView] = useState<'latest' | 'past'>('latest')
+const ResultsHub = ({ latestResults, pastElections, user }: ResultsHubProps) => {  const [currentView, setCurrentView] = useState<'latest' | 'past'>('latest')
   const router = useRouter()
   
   const handleViewPastElections = () => {
@@ -66,7 +67,7 @@ const ResultsHub = ({ latestResults, pastElections }: ResultsHubProps) => {  con
       <ElectionResults data={latestResults} />
       
       {/* Past Elections Button */}
-      {pastElections.length > 0 && (
+      {pastElections.length > 0 && user?.is_staff && (
         <motion.div 
           className="fixed bottom-8 right-8 z-40"
           initial={{ opacity: 0, scale: 0.8 }}

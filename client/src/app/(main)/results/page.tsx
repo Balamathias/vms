@@ -2,11 +2,13 @@ import { getJustConcludedElectionResults, getElections } from '@/services/server
 import ElectionResults from '@/components/results/ElectionResults'
 import React from 'react'
 import ResultsHub from '@/components/results/ResultsHub'
+import { getUser } from '@/services/server/auth'
 
 const Page = async () => {
-  const [latestResultsResponse, electionsResponse] = await Promise.all([
+  const [latestResultsResponse, electionsResponse, user] = await Promise.all([
     getJustConcludedElectionResults(),
-    getElections()
+    getElections(),
+    getUser()
   ])
   
   const latestResults = latestResultsResponse?.data
@@ -16,6 +18,7 @@ const Page = async () => {
     <ResultsHub 
       latestResults={latestResults} 
       pastElections={pastElections}
+      user={user?.data}
     />
   )
 }
