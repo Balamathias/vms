@@ -140,3 +140,38 @@
 .bg-grid-white-01 {
   background-image: radial-gradient(circle, rgba(255,255,255,0.01) 1px, transparent 1px);
 }
+
+/* During export, neutralize OKLCH-driven CSS variables with hex/rgb fallbacks */
+.export-safe {
+  --background: #ffffff;
+  --foreground: #1f2937; /* gray-800 */
+  --card: #ffffff;
+  --card-foreground: #1f2937;
+  --popover: #ffffff;
+  --popover-foreground: #1f2937;
+  --primary: #f59e0b; /* amber-500 */
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6; /* gray-100 */
+  --secondary-foreground: #1f2937;
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280; /* gray-500 */
+  --accent: #f3f4f6;
+  --accent-foreground: #1f2937;
+  --destructive: #ef4444; /* red-500 */
+  --border: #e5e7eb; /* gray-200 */
+  --input: #e5e7eb;
+  --ring: #f59e0b;
+  --chart-1: #f59e0b;
+  --chart-2: #0ea5e9; /* sky-500 */
+  --chart-3: #6366f1; /* indigo-500 */
+  --chart-4: #22c55e; /* green-500 */
+  --chart-5: #eab308; /* yellow-500 */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1f2937;
+  --sidebar-primary: #f59e0b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f3f4f6;
+  --sidebar-accent-foreground: #1f2937;
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: #f59e0b;
+}

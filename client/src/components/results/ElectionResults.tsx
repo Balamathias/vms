@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Trophy, Crown, Medal, Award, Users, Calendar, Clock, ChevronDown, ArrowLeft } from 'lucide-react'
+import { Trophy, Crown, Medal, Award, Users, Calendar, Clock, ChevronDown, ArrowLeft, Download, Star } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import WinnerCertificate from './WinnerCertificate'
 
 type Candidate = {
   student_id: string
@@ -44,6 +45,12 @@ type ElectionResultsProps = {
 
 const ElectionResults = ({ data, showBackButton = false }: ElectionResultsProps) => {
   const [expandedPositions, setExpandedPositions] = useState<Set<string>>(new Set())
+  const [showCertificate, setShowCertificate] = useState<{
+    show: boolean
+    candidate?: Candidate
+    position?: PositionResult
+    rank?: number
+  }>({ show: false })
   const router = useRouter()
   
   const togglePosition = (positionId: string) => {
@@ -54,6 +61,19 @@ const ElectionResults = ({ data, showBackButton = false }: ElectionResultsProps)
       newExpanded.add(positionId)
     }
     setExpandedPositions(newExpanded)
+  }
+
+  const generateCertificate = (candidate: Candidate, position: PositionResult, rank: number) => {
+    setShowCertificate({
+      show: true,
+      candidate,
+      position,
+      rank
+    })
+  }
+
+  const closeCertificate = () => {
+    setShowCertificate({ show: false })
   }
   
   const formatDate = (dateString: string) => {
@@ -276,13 +296,29 @@ const ElectionResults = ({ data, showBackButton = false }: ElectionResultsProps)
                                       </p>
                                     </div>
                                     
-                                    <div className="text-right">
-                                      <p className="text-2xl font-bold text-white">
-                                        {candidate.vote_count}
-                                      </p>
-                                      <p className="text-white/60 text-sm">
-                                        {candidate.vote_count === 1 ? 'vote' : 'votes'}
-                                      </p>
+                                    <div className="flex items-center gap-3">
+                                      <div className="text-right">
+                                        <p className="text-2xl font-bold text-white">
+                                          {candidate.vote_count}
+                                        </p>
+                                        <p className="text-white/60 text-sm">
+                                          {candidate.vote_count === 1 ? 'vote' : 'votes'}
+                                        </p>
+                                      </div>
+                                      
+                                      {/* Certificate Download Button */}
+                                      {rank <= 3 && (
+                                        <motion.button
+                                          className="flex items-center gap-2 bg-transparent text-white p-0 rounded-lg shadow-lg hover:from-amber-600 hover:to-yellow-700 transition-all duration-200"
+                                          onClick={() => generateCertificate(candidate, positionResult, rank)}
+                                          whileHover={{ scale: 1.05 }}
+                                          whileTap={{ scale: 0.95 }}
+                                          title="Download Certificate"
+                                        >
+                                          <Download className="h-4 w-4" />
+                                          {/* <Star className="h-4 w-4" /> */}
+                                        </motion.button>
+                                      )}
                                     </div>
                                   </div>
                                   
@@ -360,6 +396,32 @@ const ElectionResults = ({ data, showBackButton = false }: ElectionResultsProps)
           </div>
         </motion.div>
       </div>
+
+      {/* Certificate Modal */}
+      {showCertificate.show && showCertificate.candidate && showCertificate.position && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="relative max-w-6xl w-full max-h-[90vh] overflow-auto">
+            <button
+              onClick={closeCertificate}
+              className="absolute top-4 right-4 z-10 bg-red-500 hover:bg-red-600 text-white rounded-full p-2 transition-colors"
+            >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            
+            <WinnerCertificate
+              winnerName={showCertificate.candidate.student_name}
+              positionName={showCertificate.position.position_name}
+              electionName={data.name}
+              voteCount={showCertificate.candidate.vote_count}
+              winnerImage={showCertificate.candidate.photo || showCertificate.candidate.picture}
+              rank={showCertificate.rank || 1}
+              onDownload={closeCertificate}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

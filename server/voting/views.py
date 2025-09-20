@@ -900,7 +900,11 @@ class ElectionViewSet(viewsets.ModelViewSet, ResponseMixin):  # Changed from Rea
                 
                 # Get the actual student object to access the picture URL properly
                 student = Student.objects.get(id=vote['student_voted_for__id'])
-                picture_url = student.picture.url if student.picture else None
+                if student.picture:
+                    picture_url = student.picture.url
+                else:
+                    candidate = Candidate.objects.filter(student=vote['student_voted_for__id']).first()
+                    picture_url = candidate.photo.url if candidate and candidate.photo else None
                 
                 grouped.setdefault(pid, {
                     'position_id': pid,
